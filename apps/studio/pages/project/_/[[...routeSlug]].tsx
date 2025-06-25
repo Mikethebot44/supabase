@@ -22,7 +22,7 @@ const Header = () => {
         <Link href="/projects">
           <img
             src={`${BASE_PATH}/img/supabase-logo.svg`}
-            alt="Supabase"
+            alt="Studio"
             className="border-default rounded border p-1 hover:border-white"
             style={{ height: 24 }}
           />
@@ -156,7 +156,7 @@ function OrganizationErrorState() {
   return (
     <Alert_Shadcn_ variant="warning">
       <AlertTriangleIcon />
-      <AlertTitle_Shadcn_>Failed to load your Supabase organizations</AlertTitle_Shadcn_>
+      <AlertTitle_Shadcn_>Failed to load your organizations</AlertTitle_Shadcn_>
       <AlertDescription_Shadcn_>Try refreshing the page</AlertDescription_Shadcn_>
     </Alert_Shadcn_>
   )

@@ -36,13 +36,13 @@ const SupportPage: NextPageWithLayout = () => {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-y-2">
             <div className="flex items-center space-x-3">
               <SVG src={`${BASE_PATH}/img/supabase-logo.svg`} className="h-4 w-4" />
-              <h1 className="m-0 text-lg">Supabase support</h1>
+              <h1 className="m-0 text-lg">Support</h1>
             </div>
 
             <div className="flex items-center gap-x-3">
               <Button asChild type="default" icon={<Wrench />}>
                 <Link
-                  href="https://supabase.com/docs/guides/platform/troubleshooting"
+                  href="/docs/troubleshooting"
                   target="_blank"
                   rel="noreferrer"
                 >
@@ -64,7 +64,7 @@ const SupportPage: NextPageWithLayout = () => {
                       )
                     }
                   >
-                    <Link href="https://status.supabase.com/" target="_blank" rel="noreferrer">
+                    <Link href="/status" target="_blank" rel="noreferrer">
                       {isLoading
                         ? 'Checking status'
                         : isHealthy
@@ -74,7 +74,7 @@ const SupportPage: NextPageWithLayout = () => {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" align="center">
-                  Check Supabase status page
+                  Check status page
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -109,14 +109,14 @@ const SupportPage: NextPageWithLayout = () => {
                 <p className="flex items-center gap-x-1">
                   Email us directly at{' '}
                   <Link
-                    href="mailto:support@supabase.com"
+                    href="mailto:support@studio.com"
                     className="p-1 font-mono rounded-md  text-foreground"
                   >
-                    support@supabase.com
+                    support@studio.com
                   </Link>
                   <CopyButton
                     type="text"
-                    text="support@supabase.com"
+                    text="support@studio.com"
                     iconOnly
                     onClick={() => toast.success('Copied to clipboard')}
                   />

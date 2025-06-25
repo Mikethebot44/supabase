@@ -46,7 +46,7 @@ export const GlobalErrorBoundaryState = ({ error, resetErrorBoundary }: Fallback
       <header className="h-12 absolute top-0 w-full border-b px-4 flex items-center">
         <Link href="/" className="items-center justify-center">
           <Image
-            alt="Supabase"
+            alt="Studio"
             src={`${router.basePath}/img/supabase-logo.svg`}
             width={18}
             height={18}

@@ -17,7 +17,7 @@ const Header = () => {
         <Link href="/projects">
           <img
             src={`${BASE_PATH}/img/supabase-logo.svg`}
-            alt="Supabase"
+            alt="Studio"
             className="border-default rounded border p-1 hover:border-white"
             style={{ height: 24 }}
           />

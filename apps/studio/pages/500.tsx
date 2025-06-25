@@ -38,7 +38,7 @@ const Error500: NextPage = () => {
                       ? `${router.basePath}/img/supabase-dark.svg`
                       : `${router.basePath}/img/supabase-light.svg`
                   }
-                  alt=""
+                  alt="Studio"
                   height={24}
                   width={120}
                 />

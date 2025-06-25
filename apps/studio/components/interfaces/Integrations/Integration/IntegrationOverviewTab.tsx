@@ -58,7 +58,7 @@ export const IntegrationOverviewTab = ({
           >
             <Badge className="bg-surface-300 bg-opacity-100 flex items-center gap-x-2 w-max">
               <img
-                alt="Supabase"
+                alt="Studio"
                 src={`${router.basePath}/img/supabase-logo.svg`}
                 className=" h-2.5 cursor-pointer rounded"
               />

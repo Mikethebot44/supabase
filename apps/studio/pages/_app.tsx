@@ -107,7 +107,7 @@ function CustomApp({ Component, pageProps }: AppPropsWithLayout) {
               >
                 <ProfileProvider>
                   <Head>
-                    <title>Supabase</title>
+                    <title>Studio</title>
                     <meta name="viewport" content="initial-scale=1.0, width=device-width" />
                     <meta property="og:image" content={`${BASE_PATH}/img/supabase-logo.png`} />
                     {/* [Alaister]: This has to be an inline style tag here and not a separate component due to next/font */}
@@ -117,7 +117,7 @@ function CustomApp({ Component, pageProps }: AppPropsWithLayout) {
                       }}
                     />
                   </Head>
-                  <MetaFaviconsPagesRouter applicationName="Supabase Studio" />
+                  <MetaFaviconsPagesRouter applicationName="Studio" />
                   <TooltipProvider delayDuration={0}>
                     <RouteValidationWrapper>
                       <ThemeProvider

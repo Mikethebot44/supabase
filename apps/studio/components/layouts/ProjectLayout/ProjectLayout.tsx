@@ -146,16 +146,16 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
         <Head>
           <title>
             {title
-              ? `${title} | Supabase`
+              ? `${title} | Studio`
               : selectedTable
-                ? `${selectedTable} | ${projectName} | ${organizationName} | Supabase`
+                ? `${selectedTable} | ${projectName} | ${organizationName} | Studio`
                 : projectName
-                  ? `${projectName} | ${organizationName} | Supabase`
+                  ? `${projectName} | ${organizationName} | Studio`
                   : organizationName
-                    ? `${organizationName} | Supabase`
-                    : 'Supabase'}
+                    ? `${organizationName} | Studio`
+                    : 'Studio'}
           </title>
-          <meta name="description" content="Supabase Studio" />
+                          <meta name="description" content="Studio" />
         </Head>
         <div className="flex flex-row h-full w-full">
           <ResizablePanelGroup direction="horizontal" autoSaveId="project-layout">
