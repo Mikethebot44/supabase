@@ -6,6 +6,7 @@ import { forwardRef, Fragment, PropsWithChildren, ReactNode, useEffect, useState
 import { useParams } from 'common'
 import ProjectAPIDocs from 'components/interfaces/ProjectAPIDocs/ProjectAPIDocs'
 import { AIAssistant } from 'components/ui/AIAssistantPanel/AIAssistant'
+import { AIAgentTrigger, AIAgentSidebar } from 'components/ui/AIAgent'
 import AISettingsModal from 'components/ui/AISettingsModal'
 import { EditorPanel } from 'components/ui/EditorPanel/EditorPanel'
 import { Loading } from 'components/ui/Loading'
@@ -121,7 +122,14 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
 
     useEffect(() => {
       const handler = (e: KeyboardEvent) => {
-        // Cmd+I: Open AI Assistant, close Editor Panel
+        // Cmd+Shift+A: Open AI Agent Sidebar, close Editor Panel  
+        if (e.metaKey && e.shiftKey && e.key === 'A' && !e.altKey) {
+          setEditorPanel({ open: false })
+          aiSnap.toggleAssistant()
+          e.preventDefault()
+          e.stopPropagation()
+        }
+        // Cmd+I: Open AI Assistant, close Editor Panel (existing functionality)
         if (e.metaKey && e.key === 'i' && !e.altKey && !e.shiftKey) {
           setEditorPanel({ open: false })
           aiSnap.toggleAssistant()
@@ -231,7 +239,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
                     )}
                   </main>
                 </ResizablePanel>
-                {isClient && (aiSnap.open || editorPanel.open) && (
+                {isClient && editorPanel.open && (
                   <>
                     <ResizableHandle withHandle />
                     <ResizablePanel
@@ -245,11 +253,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
                         'xl:relative xl:border-l-0'
                       )}
                     >
-                      {aiSnap.open ? (
-                        <AIAssistant className="w-full h-[100dvh] md:h-full max-h-[100dvh]" />
-                      ) : editorPanel.open ? (
-                        <EditorPanel />
-                      ) : null}
+                      <EditorPanel />
                     </ResizablePanel>
                   </>
                 )}
@@ -263,6 +267,10 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
         <MobileSheetNav open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           {productMenu}
         </MobileSheetNav>
+        
+        {/* AI Agent Components */}
+        <AIAgentTrigger />
+        <AIAgentSidebar />
       </>
     )
   }
