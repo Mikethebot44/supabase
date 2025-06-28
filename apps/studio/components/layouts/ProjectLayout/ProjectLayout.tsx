@@ -253,7 +253,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
                         'xl:relative xl:border-l-0'
                       )}
                     >
-                      <EditorPanel />
+                        <EditorPanel />
                     </ResizablePanel>
                   </>
                 )}
