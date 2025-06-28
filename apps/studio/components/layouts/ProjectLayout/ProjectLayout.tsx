@@ -257,6 +257,20 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
                     </ResizablePanel>
                   </>
                 )}
+                {isClient && aiSnap.open && (
+                  <>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel
+                      id="panel-ai-agent"
+                      minSize={25}
+                      maxSize={50}
+                      defaultSize={30}
+                      className="border-l bg-background"
+                    >
+                      <AIAgentSidebar className="border-l-0 static h-full w-full shadow-none" />
+                    </ResizablePanel>
+                  </>
+                )}
               </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -268,9 +282,8 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
           {productMenu}
         </MobileSheetNav>
         
-        {/* AI Agent Components */}
+        {/* AI Agent Trigger */}
         <AIAgentTrigger />
-        <AIAgentSidebar />
       </>
     )
   }

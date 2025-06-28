@@ -1,18 +1,26 @@
+import { useChat } from 'ai/react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, ChevronDown, GripVertical, Settings, X } from 'lucide-react'
+import { Bot, ChevronDown, ChevronRight, Code, Edit, GripVertical, Plus, Search, Settings, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { Markdown } from 'components/interfaces/Markdown'
+import { EnhancedMarkdown } from './EnhancedMarkdown'
 import { useAiAssistantStateSnapshot } from 'state/ai-assistant-state'
 import {
   Button,
   cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogSection,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Input,
   ScrollArea,
   Separator,
   Textarea,
@@ -64,6 +72,65 @@ const SUPABASE_FUNCTIONS = [
   { key: 'usage-analytics', label: 'Usage Analytics', category: 'Analytics', description: 'Analyze project usage and metrics' },
 ]
 
+// FunctionCall Component
+const FunctionCallComponent = ({ functionCall }: { functionCall: FunctionCall }) => {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="my-2 border border-border rounded-lg overflow-hidden bg-surface-100">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-3 hover:bg-surface-200 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <Code size={14} className="text-brand-600" />
+          <span className="text-sm font-medium text-foreground">
+            {functionCall.name}
+          </span>
+          <span className="text-xs text-foreground-light bg-surface-200 px-2 py-0.5 rounded">
+            Function Called
+          </span>
+        </div>
+        <ChevronRight 
+          size={14} 
+          className={cn(
+            'text-foreground-light transition-transform',
+            isExpanded && 'rotate-90'
+          )} 
+        />
+      </button>
+      
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0 }}
+            animate={{ height: 'auto' }}
+            exit={{ height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3">
+              <p className="text-xs text-foreground-light mb-2">
+                {functionCall.description}
+              </p>
+              <div className="bg-background border border-border rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-foreground-light uppercase tracking-wide">
+                    {functionCall.language}
+                  </span>
+                </div>
+                <pre className="text-xs text-foreground overflow-x-auto">
+                  <code>{functionCall.code}</code>
+                </pre>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 interface Chat {
   id: string
   name: string
@@ -71,12 +138,35 @@ interface Chat {
   lastMessage?: string
 }
 
+interface Memory {
+  id: string
+  text: string
+  createdAt: Date
+  lastModified: Date
+}
+
+interface FunctionCall {
+  id: string
+  name: string
+  description: string
+  code: string
+  language: string
+}
+
+interface Message {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: Date
+  functionCalls?: FunctionCall[]
+}
+
 interface AIAgentSidebarProps {
   className?: string
 }
 
 // Mock messages for demonstration
-const MOCK_MESSAGES = [
+const MOCK_MESSAGES: Message[] = [
   {
     id: '1',
     role: 'user' as const,
@@ -112,11 +202,69 @@ Would you like me to analyze a specific query? Please share the SQL you'd like m
   {
     id: '3',
     role: 'user' as const,
+    content: 'Can you create a table for storing user profiles with proper indexes?',
+    createdAt: new Date(Date.now() - 180000), // 3 minutes ago
+  },
+  {
+    id: '4',
+    role: 'assistant' as const,
+    content: `I'll create a well-structured user profiles table with optimized indexes for you.`,
+    createdAt: new Date(Date.now() - 170000), // 2 minutes 50 seconds ago
+    functionCalls: [
+      {
+        id: 'create_table_1',
+        name: 'create_table',
+        description: 'Created a user_profiles table with proper schema and indexes',
+        language: 'sql',
+        code: `-- Create user_profiles table
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  username TEXT UNIQUE,
+  full_name TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes for optimal performance
+CREATE INDEX idx_user_profiles_user_id ON user_profiles(user_id);
+CREATE INDEX idx_user_profiles_username ON user_profiles(username);
+CREATE INDEX idx_user_profiles_email ON user_profiles(email);
+CREATE INDEX idx_user_profiles_created_at ON user_profiles(created_at);`
+      },
+      {
+        id: 'create_rls_1',
+        name: 'enable_rls',
+        description: 'Enabled Row Level Security and created policies for the table',
+        language: 'sql',
+        code: `-- Enable RLS
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Users can view their own profile
+CREATE POLICY "Users can view own profile" ON user_profiles
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Policy: Users can update their own profile  
+CREATE POLICY "Users can update own profile" ON user_profiles
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Policy: Users can insert their own profile
+CREATE POLICY "Users can insert own profile" ON user_profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);`
+      }
+    ]
+  },
+  {
+    id: '5',
+    role: 'user' as const,
     content: 'Can you help me create a RLS policy for user data?',
     createdAt: new Date(Date.now() - 120000), // 2 minutes ago
   },
   {
-    id: '4',
+    id: '6',
     role: 'assistant' as const,
     content: `Absolutely! Row Level Security (RLS) is crucial for protecting user data. Here's how to create a basic RLS policy:
 
@@ -135,15 +283,88 @@ CREATE POLICY "Users can update own profile" ON user_profiles
   FOR UPDATE USING (auth.uid() = user_id);
 \`\`\`
 
+## Client Implementation
+
+Here's how to use this in your JavaScript/TypeScript code:
+
+\`\`\`typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(url, anonKey)
+
+// This will automatically respect RLS policies
+const { data, error } = await supabase
+  .from('user_profiles')
+  .select('*')
+  .eq('user_id', user.id)
+\`\`\`
+
 ## Key Points
 
 - Use \`auth.uid()\` to get the current user's ID
-- Create separate policies for SELECT, INSERT, UPDATE, DELETE
+- Create separate policies for SELECT, INSERT, UPDATE, DELETE  
 - Test your policies thoroughly before deploying
 
 Would you like me to help you create a policy for a specific table structure?`,
     createdAt: new Date(Date.now() - 60000), // 1 minute ago
   },
+]
+
+// Mock memories for AI assistant
+const MOCK_MEMORIES: Memory[] = [
+  {
+    id: '1',
+    text: 'User prefers using Row Level Security (RLS) policies for data protection instead of application-level security.',
+    createdAt: new Date(Date.now() - 604800000), // 1 week ago
+    lastModified: new Date(Date.now() - 604800000),
+  },
+  {
+    id: '2', 
+    text: 'User\'s main project uses TypeScript with Next.js 14 App Router and Supabase for the backend.',
+    createdAt: new Date(Date.now() - 345600000), // 4 days ago
+    lastModified: new Date(Date.now() - 345600000),
+  },
+  {
+    id: '3',
+    text: 'User frequently asks about SQL query optimization and prefers detailed explanations with code examples.',
+    createdAt: new Date(Date.now() - 259200000), // 3 days ago  
+    lastModified: new Date(Date.now() - 86400000), // 1 day ago
+  },
+  {
+    id: '4',
+    text: 'User works with real-time subscriptions and needs help with PostgreSQL triggers and functions.',
+    createdAt: new Date(Date.now() - 172800000), // 2 days ago
+    lastModified: new Date(Date.now() - 172800000),
+  },
+  {
+    id: '5',
+    text: 'User prefers minimal comments in generated code and clean, readable implementations.',
+    createdAt: new Date(Date.now() - 86400000), // 1 day ago
+    lastModified: new Date(Date.now() - 86400000),
+  },
+  {
+    id: '6',
+    text: 'User\'s team uses Shadcn UI components and Tailwind CSS for styling. Follows design system patterns.',
+    createdAt: new Date(Date.now() - 43200000), // 12 hours ago
+    lastModified: new Date(Date.now() - 43200000),
+  },
+]
+
+// Extended chat history (includes both open and closed chats)
+const ALL_CHATS: Chat[] = [
+  // Current open chats
+  { id: '1', name: 'Database Optimization', createdAt: new Date(), lastMessage: 'How can I optimize this query?' },
+  { id: '2', name: 'Auth Setup', createdAt: new Date(Date.now() - 3600000), lastMessage: 'Help with user authentication' },
+  { id: '3', name: 'RLS Policies', createdAt: new Date(Date.now() - 7200000), lastMessage: 'Create Row Level Security policies' },
+  
+  // Previous chats
+  { id: '4', name: 'Plan UI components for AI agent sidebar', createdAt: new Date(Date.now() - 14400000), lastMessage: 'Need to design the sidebar interface' },
+  { id: '5', name: 'Identify and list supabase branding', createdAt: new Date(Date.now() - 86400000), lastMessage: 'Looking for brand guidelines' },
+  { id: '6', name: 'Database Migration Issues', createdAt: new Date(Date.now() - 172800000), lastMessage: 'Having trouble with migration files' },
+  { id: '7', name: 'Edge Functions Deployment', createdAt: new Date(Date.now() - 259200000), lastMessage: 'Deploy function not working' },
+  { id: '8', name: 'Storage Bucket Configuration', createdAt: new Date(Date.now() - 345600000), lastMessage: 'Setting up file uploads' },
+  { id: '9', name: 'GraphQL API Integration', createdAt: new Date(Date.now() - 432000000), lastMessage: 'Help with GraphQL queries' },
+  { id: '10', name: 'Real-time Subscriptions', createdAt: new Date(Date.now() - 518400000), lastMessage: 'Setting up real-time data' },
 ]
 
 export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
@@ -162,11 +383,22 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   
   // Chat management
   const [openChats, setOpenChats] = useState<Chat[]>([
-    { id: '1', name: 'Database Optimization', createdAt: new Date(), lastMessage: 'How can I optimize this query?' },
-    { id: '2', name: 'Auth Setup', createdAt: new Date(Date.now() - 3600000), lastMessage: 'Help with user authentication' },
-    { id: '3', name: 'RLS Policies', createdAt: new Date(Date.now() - 7200000), lastMessage: 'Create Row Level Security policies' },
+    { id: 'demo', name: 'Demo Chat (Styled)', createdAt: new Date(), lastMessage: 'How can I optimize this query?' },
   ])
-  const [activeChatId, setActiveChatId] = useState<string>('1')
+  const [activeChatId, setActiveChatId] = useState<string>('demo')
+
+  // OpenAI Chat Integration  
+  const {
+    messages: aiMessages,
+    input,
+    handleInputChange,
+    handleSubmit: handleAiSubmit,
+    isLoading: aiIsLoading,
+    setMessages,
+  } = useChat({
+    api: '/api/ai/chat',
+    id: activeChatId === 'demo' ? undefined : activeChatId, // Only use AI for non-demo chats
+  })
   
   // Edit mode state
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
@@ -175,6 +407,22 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   const [editSelectedModel, setEditSelectedModel] = useState(AI_MODELS[0].key)
   const [editFunctionSearch, setEditFunctionSearch] = useState('')
   const [isEditFunctionDropdownOpen, setIsEditFunctionDropdownOpen] = useState(false)
+  
+  // Dialog states
+  const [isPastChatsDialogOpen, setIsPastChatsDialogOpen] = useState(false)
+  const [isEditMemoriesDialogOpen, setIsEditMemoriesDialogOpen] = useState(false)
+  
+  // Past chats dialog states
+  const [chatSearch, setChatSearch] = useState('')
+  const [editingChatId, setEditingChatId] = useState<string | null>(null)
+  const [editingChatName, setEditingChatName] = useState('')
+  const [allChats, setAllChats] = useState<Chat[]>(ALL_CHATS)
+  
+  // Memories dialog states  
+  const [memorySearch, setMemorySearch] = useState('')
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null)
+  const [editingMemoryText, setEditingMemoryText] = useState('')
+  const [memories, setMemories] = useState<Memory[]>(MOCK_MEMORIES)
   
   const sidebarRef = useRef<HTMLDivElement>(null)
   const resizeRef = useRef<HTMLDivElement>(null)
@@ -208,6 +456,13 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   
   const switchToChat = (chatId: string) => {
     setActiveChatId(chatId)
+    // Clear AI messages when switching to demo chat or between chats
+    if (chatId === 'demo') {
+      setMessages([])
+    } else {
+      // For real chats, you could load messages from storage here
+      setMessages([])
+    }
   }
   
   const closeChat = (chatId: string) => {
@@ -228,6 +483,8 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
     }
     setOpenChats([...openChats, newChat])
     setActiveChatId(newChat.id)
+    // Clear messages for new chat
+    setMessages([])
   }
 
   // Edit mode functions
@@ -397,10 +654,145 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   }
 
   const handleSettings = () => {
-    appSnap.setShowAiSettingsModal(true)
+    router.push('/account/ai-agent-settings')
+  }
+
+  // Helper functions for date grouping
+  const getRelativeDate = (date: Date) => {
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    
+    if (diffInHours < 24) return 'Today'
+    if (diffInHours < 48) return 'Yesterday'
+    if (diffInHours < 168) return 'This Week' // 7 days
+    if (diffInHours < 720) return 'This Month' // 30 days
+    return 'Older'
+  }
+
+  const groupChatsByDate = (chats: Chat[]) => {
+    const groups: { [key: string]: Chat[] } = {}
+    
+    chats.forEach(chat => {
+      const group = getRelativeDate(chat.createdAt)
+      if (!groups[group]) groups[group] = []
+      groups[group].push(chat)
+    })
+    
+    // Sort groups by recency
+    const sortedGroups: { [key: string]: Chat[] } = {}
+    const order = ['Today', 'Yesterday', 'This Week', 'This Month', 'Older']
+    
+    order.forEach(group => {
+      if (groups[group]) {
+        sortedGroups[group] = groups[group].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      }
+    })
+    
+    return sortedGroups
+  }
+
+  // Chat management functions
+  const filteredChats = allChats.filter(chat =>
+    chat.name.toLowerCase().includes(chatSearch.toLowerCase()) ||
+    (chat.lastMessage && chat.lastMessage.toLowerCase().includes(chatSearch.toLowerCase()))
+  )
+
+  const startEditingChat = (chatId: string, currentName: string) => {
+    setEditingChatId(chatId)
+    setEditingChatName(currentName)
+  }
+
+  const saveEditingChat = () => {
+    if (editingChatId && editingChatName.trim()) {
+      setAllChats(prev => prev.map(chat => 
+        chat.id === editingChatId 
+          ? { ...chat, name: editingChatName.trim() }
+          : chat
+      ))
+      
+      // Also update openChats if this chat is open
+      setOpenChats(prev => prev.map(chat =>
+        chat.id === editingChatId
+          ? { ...chat, name: editingChatName.trim() }
+          : chat
+      ))
+    }
+    setEditingChatId(null)
+    setEditingChatName('')
+  }
+
+  const cancelEditingChat = () => {
+    setEditingChatId(null)
+    setEditingChatName('')
+  }
+
+  const deleteChat = (chatId: string) => {
+    setAllChats(prev => prev.filter(chat => chat.id !== chatId))
+    
+    // Remove from open chats if it exists there
+    if (openChats.some(chat => chat.id === chatId)) {
+      closeChat(chatId)
+    }
+  }
+
+  const openChatFromHistory = (chat: Chat) => {
+    // Add to open chats if not already open
+    if (!openChats.some(openChat => openChat.id === chat.id)) {
+      setOpenChats(prev => [...prev, chat])
+    }
+    
+    // Switch to this chat
+    switchToChat(chat.id)
+    
+    // Close the dialog
+    setIsPastChatsDialogOpen(false)
+  }
+
+  // Memory management functions
+  const filteredMemories = memories.filter(memory =>
+    memory.text.toLowerCase().includes(memorySearch.toLowerCase())
+  )
+
+  const startEditingMemory = (memoryId: string, currentText: string) => {
+    setEditingMemoryId(memoryId)
+    setEditingMemoryText(currentText)
+  }
+
+  const saveEditingMemory = () => {
+    if (editingMemoryId && editingMemoryText.trim()) {
+      setMemories(prev => prev.map(memory =>
+        memory.id === editingMemoryId
+          ? { ...memory, text: editingMemoryText.trim(), lastModified: new Date() }
+          : memory
+      ))
+    }
+    setEditingMemoryId(null)
+    setEditingMemoryText('')
+  }
+
+  const cancelEditingMemory = () => {
+    setEditingMemoryId(null)
+    setEditingMemoryText('')
+  }
+
+  const deleteMemory = (memoryId: string) => {
+    setMemories(prev => prev.filter(memory => memory.id !== memoryId))
+  }
+
+  const addNewMemory = () => {
+    const newMemory: Memory = {
+      id: Date.now().toString(),
+      text: 'New memory...',
+      createdAt: new Date(),
+      lastModified: new Date(),
+    }
+    setMemories(prev => [newMemory, ...prev])
+    startEditingMemory(newMemory.id, newMemory.text)
   }
 
   if (!snap.open) return null
+
+
 
   return (
     <AnimatePresence>
@@ -411,27 +803,12 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
         exit={{ x: '100%' }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className={cn(
-          'fixed right-0 top-12 z-40 flex h-[calc(100vh-3rem)] bg-background border-l border-border shadow-xl',
+          'flex h-full bg-background',
           className
         )}
-        style={{ width }}
       >
-        {/* Resize Handle */}
-        <div
-          ref={resizeRef}
-          className={cn(
-            'absolute left-0 top-0 bottom-0 w-1 cursor-col-resize bg-border hover:bg-border-strong transition-colors',
-            isDragging && 'bg-brand-600'
-          )}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <GripVertical size={12} className="text-foreground-light" />
-          </div>
-        </div>
-
         {/* Sidebar Content */}
-        <div className="flex flex-col w-full ml-1">
+        <div className="flex flex-col w-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             {/* Chat Tabs - Left Side */}
@@ -488,8 +865,8 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={createNewChat}>New Chat</DropdownMenuItem>
-                  <DropdownMenuItem>Clear History</DropdownMenuItem>
-                  <DropdownMenuItem>Export Chat</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsPastChatsDialogOpen(true)}>View Past Chats</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setIsEditMemoriesDialogOpen(true)}>Edit Memories</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
               
@@ -512,7 +889,9 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
           {/* Chat Messages */}
           <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
             <div className="space-y-4">
-              {MOCK_MESSAGES.map((message) => (
+              {/* Show demo messages for demo chat, AI messages for real chats */}
+              {activeChatId === 'demo' ? (
+                MOCK_MESSAGES.map((message) => (
                 <div
                   key={message.id}
                   className="w-full px-2"
@@ -685,11 +1064,24 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                     )
                   ) : (
                     <div className="text-foreground mb-4">
-                      <Markdown 
+                      <EnhancedMarkdown 
                         content={message.content}
                         className="text-sm prose-sm max-w-none"
                         extLinks={true}
                       />
+                      
+                      {/* Function Calls */}
+                      {message.functionCalls && message.functionCalls.length > 0 && (
+                        <div className="mt-3">
+                          {message.functionCalls.map((functionCall) => (
+                            <FunctionCallComponent 
+                              key={functionCall.id} 
+                              functionCall={functionCall} 
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
                       <div className="text-xs opacity-70 mt-2">
                         {message.createdAt.toLocaleTimeString([], { 
                           hour: '2-digit', 
@@ -699,9 +1091,41 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                     </div>
                   )}
                 </div>
-              ))}
+              ))
+              ) : (
+                // Real AI chat messages
+                aiMessages.map((message) => (
+                  <div key={message.id} className="w-full px-2">
+                    {message.role === 'user' ? (
+                      <div className="bg-surface-200 text-foreground rounded-lg px-4 py-3 mb-2 ml-0">
+                        <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+                        <div className="text-xs opacity-70 mt-2">
+                          {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-foreground mb-4">
+                        <EnhancedMarkdown 
+                          content={message.content}
+                          className="text-sm prose-sm max-w-none"
+                          extLinks={true}
+                        />
+                        <div className="text-xs opacity-70 mt-2">
+                          {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
               
-              {isLoading && (
+              {(isLoading || aiIsLoading) && (
                 <div className="w-full px-4">
                   <div className="text-foreground mb-4">
                     <div className="flex space-x-1">
@@ -726,7 +1150,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                       type="outline"
                       size="tiny"
                       iconRight={<ChevronDown size={12} />}
-                      disabled={isLoading}
+                      disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
                       className="text-xs h-7"
                     >
                       Add Function
@@ -788,7 +1212,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                     <button
                       onClick={() => removeFunction(func.key)}
                       className="hover:text-foreground ml-1"
-                      disabled={isLoading}
+                      disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
                     >
                       <X size={12} />
                     </button>
@@ -802,12 +1226,17 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
               {/* Message Input Container */}
               <div className="relative">
                 <Textarea
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your question..."
+                  value={activeChatId === 'demo' ? inputValue : input}
+                  onChange={activeChatId === 'demo' ? (e) => setInputValue(e.target.value) : handleInputChange}
+                  onKeyDown={activeChatId === 'demo' ? handleKeyDown : (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleAiSubmit(e)
+                    }
+                  }}
+                  placeholder={activeChatId === 'demo' ? "Demo chat (visual styling only)" : "Type your question..."}
                   className="min-h-[80px] resize-none pr-20 pb-12"
-                  disabled={isLoading}
+                  disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
                 />
                 
                 {/* AI Model Dropdown - Bottom Left */}
@@ -818,7 +1247,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                         type="outline"
                         size="tiny"
                         iconRight={<ChevronDown size={12} />}
-                        disabled={isLoading}
+                        disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
                         className="text-xs h-7"
                       >
                         {AI_MODELS.find(model => model.key === selectedModel)?.label}
@@ -849,9 +1278,12 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                   <Button
                     type="primary"
                     size="tiny"
-                    onClick={handleSendMessage}
-                    loading={isLoading}
-                    disabled={!inputValue.trim()}
+                    onClick={activeChatId === 'demo' ? handleSendMessage : (e) => {
+                      e.preventDefault()
+                      handleAiSubmit(e)
+                    }}
+                    loading={isLoading || aiIsLoading}
+                    disabled={activeChatId === 'demo' ? true : !input.trim()}
                     className="h-7"
                   >
                     Send
@@ -862,6 +1294,233 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
           </div>
         </div>
       </motion.div>
+      
+      {/* View Past Chats Dialog */}
+      <Dialog open={isPastChatsDialogOpen} onOpenChange={setIsPastChatsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] h-[600px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Past Chats</DialogTitle>
+            <DialogDescription>
+              View and manage your previous chat conversations.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogSection className="flex-1 overflow-hidden flex flex-col">
+            {/* Search Bar */}
+            <div className="mb-4">
+              <Input
+                placeholder="Search chats..."
+                value={chatSearch}
+                onChange={(e) => setChatSearch(e.target.value)}
+              />
+            </div>
+            
+            {/* Chat List */}
+            <ScrollArea className="flex-1">
+              <div className="space-y-1">
+                {Object.entries(groupChatsByDate(filteredChats)).map(([group, chats]) => (
+                  <div key={group}>
+                    {/* Group Header */}
+                    <div className="px-2 py-1 text-xs font-medium text-foreground-light uppercase tracking-wider">
+                      {group}
+                    </div>
+                    
+                    {/* Chat Items */}
+                    {chats.map((chat) => (
+                      <div
+                        key={chat.id}
+                        className="group flex items-center justify-between p-2 rounded hover:bg-surface-100 cursor-pointer"
+                        onClick={() => !editingChatId ? openChatFromHistory(chat) : undefined}
+                      >
+                        <div className="flex-1 min-w-0">
+                          {editingChatId === chat.id ? (
+                            <Input
+                              value={editingChatName}
+                              onChange={(e) => setEditingChatName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEditingChat()
+                                if (e.key === 'Escape') cancelEditingChat()
+                              }}
+                              onBlur={saveEditingChat}
+                              className="text-sm h-8"
+                              autoFocus
+                            />
+                          ) : (
+                            <div className="text-sm font-medium text-foreground truncate">
+                              {chat.name}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {editingChatId !== chat.id && (
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              type="text"
+                              size="tiny"
+                              icon={<Edit size={14} />}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startEditingChat(chat.id, chat.name)
+                              }}
+                            />
+                            <Button
+                              type="text"
+                              size="tiny"
+                              icon={<Trash2 size={14} />}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteChat(chat.id)
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                
+                {filteredChats.length === 0 && (
+                  <div className="text-center py-8 text-foreground-light">
+                    {chatSearch ? 'No chats found matching your search.' : 'No chat history yet.'}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+            
+            {/* New Chat Button */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <Button
+                type="default"
+                size="medium"
+                icon={<Plus size={16} />}
+                onClick={() => {
+                  createNewChat()
+                  setIsPastChatsDialogOpen(false)
+                }}
+                className="w-full"
+              >
+                New Chat
+              </Button>
+            </div>
+          </DialogSection>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Memories Dialog */}
+      <Dialog open={isEditMemoriesDialogOpen} onOpenChange={setIsEditMemoriesDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] h-[700px] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Edit Memories</DialogTitle>
+            <DialogDescription>
+              Manage your AI assistant's memory and stored information.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogSection className="flex-1 overflow-hidden flex flex-col">
+            {/* Search Bar and Add Button */}
+            <div className="flex gap-2 mb-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search memories..."
+                  value={memorySearch}
+                  onChange={(e) => setMemorySearch(e.target.value)}
+                />
+              </div>
+              <Button
+                type="default"
+                size="medium"
+                icon={<Plus size={16} />}
+                onClick={addNewMemory}
+              >
+                Add Memory
+              </Button>
+            </div>
+            
+            {/* Memory List */}
+            <ScrollArea className="flex-1">
+              <div className="space-y-3">
+                {filteredMemories.map((memory) => (
+                  <div
+                    key={memory.id}
+                    className="group border border-border rounded-lg p-4 hover:border-border-strong transition-colors"
+                  >
+                    {editingMemoryId === memory.id ? (
+                      /* Edit Mode */
+                      <div className="space-y-3">
+                        <Textarea
+                          value={editingMemoryText}
+                          onChange={(e) => setEditingMemoryText(e.target.value)}
+                          className="min-h-[80px] resize-none"
+                          placeholder="Enter memory text..."
+                          autoFocus
+                        />
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="text"
+                            size="tiny"
+                            onClick={cancelEditingMemory}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="primary"
+                            size="tiny"
+                            onClick={saveEditingMemory}
+                            disabled={!editingMemoryText.trim()}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Display Mode */
+                      <>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-foreground leading-relaxed">
+                              {memory.text}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2 text-xs text-foreground-light">
+                              <span>Created {memory.createdAt.toLocaleDateString()}</span>
+                              {memory.lastModified.getTime() !== memory.createdAt.getTime() && (
+                                <>
+                                  <span>•</span>
+                                  <span>Modified {memory.lastModified.toLocaleDateString()}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              type="text"
+                              size="tiny"
+                              icon={<Edit size={14} />}
+                              onClick={() => startEditingMemory(memory.id, memory.text)}
+                            />
+                            <Button
+                              type="text"
+                              size="tiny"
+                              icon={<Trash2 size={14} />}
+                              onClick={() => deleteMemory(memory.id)}
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+                
+                {filteredMemories.length === 0 && (
+                  <div className="text-center py-8 text-foreground-light">
+                    {memorySearch ? 'No memories found matching your search.' : 'No memories stored yet.'}
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </DialogSection>
+        </DialogContent>
+      </Dialog>
     </AnimatePresence>
   )
 } 

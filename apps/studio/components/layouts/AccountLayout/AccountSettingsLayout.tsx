@@ -20,12 +20,17 @@ export const AccountSettingsLayout = ({ children }: PropsWithChildren) => {
       href: `/account/tokens`,
       key: `/account/tokens`,
     },
-
     {
       isActive: pathname === `/account/security`,
       label: 'Security',
       href: `/account/security`,
       key: `/account/security`,
+    },
+    {
+      isActive: pathname === `/account/ai-agent-settings`,
+      label: 'AI Agent',
+      href: `/account/ai-agent-settings`,
+      key: `/account/ai-agent-settings`,
     },
   ]
 
