@@ -143,3 +143,6 @@ gcloud.json
 **/.sentryclirc
 
 keys.json
+
+# Contentlayer
+.contentlayer

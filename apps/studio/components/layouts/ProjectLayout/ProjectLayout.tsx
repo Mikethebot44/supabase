@@ -96,7 +96,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
       toggleEditorPanel,
       setEditorPanel,
     } = useAppStateSnapshot()
-    const aiSnap = useAiAssistantStateSnapshot()
+    const snap = useAiAssistantStateSnapshot()
 
     const editor = useEditorType()
     const forceShowProductMenu = editor === undefined
@@ -125,20 +125,20 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
         // Cmd+Shift+A: Open AI Agent Sidebar, close Editor Panel  
         if (e.metaKey && e.shiftKey && e.key === 'A' && !e.altKey) {
           setEditorPanel({ open: false })
-          aiSnap.toggleAssistant()
+          snap.toggleAssistant()
           e.preventDefault()
           e.stopPropagation()
         }
         // Cmd+I: Open AI Assistant, close Editor Panel (existing functionality)
         if (e.metaKey && e.key === 'i' && !e.altKey && !e.shiftKey) {
           setEditorPanel({ open: false })
-          aiSnap.toggleAssistant()
+          snap.toggleAssistant()
           e.preventDefault()
           e.stopPropagation()
         }
         // Cmd+E: Toggle Editor Panel, always close AI Assistant
         if (e.metaKey && e.key === 'e' && !e.altKey && !e.shiftKey) {
-          aiSnap.closeAssistant()
+          snap.closeAssistant()
           toggleEditorPanel()
           e.preventDefault()
           e.stopPropagation()
@@ -147,7 +147,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
       window.addEventListener('keydown', handler)
       return () => window.removeEventListener('keydown', handler)
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [setEditorPanel, aiSnap, editorPanel.open])
+    }, [setEditorPanel, snap, editorPanel.open])
 
     return (
       <>
@@ -270,7 +270,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
         
         {/* AI Agent Components */}
         <AIAgentTrigger />
-        <AIAgentSidebar />
+        <AIAgentSidebar isOpen={snap.open} onClose={() => snap.closeAssistant()} />
       </>
     )
   }

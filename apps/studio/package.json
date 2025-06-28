@@ -5,6 +5,7 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "dev": "next dev --turbopack -p 8082",
+    "dev:reset": "rm -rf .next && pnpm dev",
     "dev:secrets:pull": "AWS_PROFILE=supabase-dev node ../../scripts/getSecrets.js -n local/studio",
     "build": "next build && ./../../scripts/upload-static-assets.sh",
     "start": "next start",
