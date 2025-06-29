@@ -1,147 +1,176 @@
 import OpenAI from 'openai'
-import { AI_ASSISTANT_SYSTEM_PROMPT, AI_ASSISTANT_FUNCTIONS, DEFAULT_TEMPERATURE, MAX_TOKENS } from './ai-assistant-prompts'
+import { Message } from './types'
 
-interface Message {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  function_call?: any
+const SYSTEM_PROMPT = `You are an AI assistant for Supabase Studio, a powerful database management and development platform. Your role is to help users with:
+
+1. Database Operations
+- SQL queries and optimizations
+- Schema design and management
+- Row Level Security (RLS) policies
+- Database functions and triggers
+- Migrations and backups
+
+2. Authentication & Authorization
+- User management
+- OAuth providers setup
+- JWT configuration
+- Role-based access control
+
+3. Storage
+- Bucket management
+- File upload configurations
+- Storage rules and policies
+
+4. Edge Functions
+- Function deployment
+- Environment variables
+- Error handling and debugging
+
+5. API Development
+- RESTful endpoints
+- GraphQL APIs
+- Realtime subscriptions
+- API documentation
+
+You have deep knowledge of Supabase's features and best practices. Always provide specific, actionable advice and include code examples when relevant.`
+
+// Mock responses for different types of queries
+const MOCK_RESPONSES: { [key: string]: string } = {
+  default: `I can help you with that! Here are some common tasks I can assist with:
+- SQL query optimization
+- Database schema design
+- RLS policy creation
+- Authentication setup
+- Storage configuration
+- API integration
+
+What would you like to know more about?`,
+  
+  sql: `Here's how you can optimize your SQL query:
+
+\`\`\`sql
+SELECT u.id, u.name, p.title
+FROM users u
+INNER JOIN posts p ON u.id = p.user_id
+WHERE u.active = true
+LIMIT 100;
+\`\`\`
+
+Key optimization tips:
+1. Use indexes on frequently queried columns
+2. Limit result sets
+3. Use INNER JOIN when possible
+4. Be specific with column selection`,
+
+  rls: `Here's a basic RLS policy example:
+
+\`\`\`sql
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own profile"
+ON profiles FOR SELECT
+USING (auth.uid() = user_id);
+\`\`\`
+
+This policy ensures users can only view their own profile data.`,
+
+  auth: `For authentication setup:
+
+1. Enable the Auth providers you want to use
+2. Configure your OAuth credentials
+3. Set up your email templates
+4. Add client-side auth code
+
+Would you like a specific example for any of these steps?`
 }
 
-const MOCK_RESPONSES = [
-  "This is a mock response. The AI assistant workflow is working correctly! 🎉",
-  "Mock response: Your database query looks good! Here's a simulated suggestion...",
-  "Test response: I can help you with Supabase authentication setup...",
-  "Mock mode: Here's how you would typically set up row level security..."
-]
-
 export class AIAssistantService {
-  private openai!: OpenAI
-  private mockMode: boolean
-  private mockResponseIndex: number = 0
-  private conversationHistory: Message[] = []
-  private context: string = ''
+  private client: OpenAI
+  private messages: { role: 'system' | 'user' | 'assistant', content: string }[] = []
 
-  constructor(apiKey: string, mockMode: boolean = false, context: string = '') {
-    this.mockMode = mockMode
-    this.context = context
-    if (!mockMode) {
-      this.openai = new OpenAI({ 
-        apiKey,
-        baseURL: 'https://api.zukijourney.com/v1',
-        dangerouslyAllowBrowser: true  // Required for browser usage
-      })
-      // Initialize conversation with system message
-      this.conversationHistory = [{
-        role: 'system',
-        content: AI_ASSISTANT_SYSTEM_PROMPT
-      }] as Message[]
-    }
-  }
-
-  private getNextMockResponse(): string {
-    const response = MOCK_RESPONSES[this.mockResponseIndex]
-    this.mockResponseIndex = (this.mockResponseIndex + 1) % MOCK_RESPONSES.length
-    return response
-  }
-
-  setContext(context: string) {
-    this.context = context
-  }
-
-  async initialize() {
-    if (this.mockMode) {
-      console.log('Initializing AI Assistant in mock mode')
-      return true
+  constructor(apiKey: string) {
+    if (!apiKey?.trim()) {
+      throw new Error(JSON.stringify({ 
+        message: 'API key is required. Please add your Zuki API key to .env.local file.' 
+      }))
     }
 
+    // Initialize Zuki client with custom base URL
+    this.client = new OpenAI({ 
+      apiKey: apiKey.trim(),
+      baseURL: 'https://api.zukijourney.com/v1',
+      dangerouslyAllowBrowser: true
+    })
+
+    this.messages = [{
+      role: 'system',
+      content: SYSTEM_PROMPT
+    }]
+  }
+
+  async initialize(): Promise<boolean> {
     try {
-      // Test the connection with a simple completion
-      await this.openai.chat.completions.create({
+      // Test the connection with Zuki's API
+      const testResponse = await this.client.chat.completions.create({
         model: 'zukigm-1',
         messages: [{ role: 'user', content: 'test' }],
+        max_tokens: 5
       })
       return true
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize assistant:', error)
-      throw error
+      throw new Error(JSON.stringify({ 
+        message: 'Failed to initialize AI Assistant. Please check your API key in the .env.local file.' 
+      }))
     }
   }
 
-  async sendMessage(content: string): Promise<any> {
-    if (this.mockMode) {
-      // Simulate a delay to make it feel more realistic
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      return {
-        id: `mock-msg-${Date.now()}`,
-        role: 'assistant',
-        content: this.getNextMockResponse(),
-        createdAt: new Date()
-      }
-    }
-
+  async sendMessage(content: string): Promise<Message> {
     try {
-      // Add user message to history with context
-      const userMessage = {
-        role: 'user' as const,
-        content: `${this.context ? 'Current Context: ' + this.context + '\n\n' : ''}${content}`
-      }
-      this.conversationHistory.push(userMessage)
+      // Add user message to history
+      this.messages.push({
+        role: 'user',
+        content
+      })
 
-      // Get completion from Zuki API
-      const completion = await this.openai.chat.completions.create({
+      // Get completion from Zuki
+      const completion = await this.client.chat.completions.create({
         model: 'zukigm-1',
-        messages: this.conversationHistory,
-        temperature: DEFAULT_TEMPERATURE,
-        max_tokens: MAX_TOKENS,
-        functions: AI_ASSISTANT_FUNCTIONS,
-        function_call: 'auto'
+        messages: this.messages,
+        temperature: 0.7,
+        stream: false
       })
 
       const assistantMessage = completion.choices[0].message
 
-      // Handle function calls if present
-      if (assistantMessage.function_call) {
-        const functionResponse = {
-          role: 'assistant' as const,
-          content: `I suggest executing this operation:\n\`\`\`json\n${JSON.stringify(assistantMessage.function_call, null, 2)}\n\`\`\`\n\nWould you like me to proceed?`,
-          function_call: assistantMessage.function_call
-        }
-        this.conversationHistory.push(functionResponse)
-        return {
-          id: completion.id,
-          ...functionResponse,
-          createdAt: new Date()
-        }
+      // Create response message
+      const response: Message = {
+        id: completion.id,
+        role: 'assistant',
+        content: assistantMessage.content || 'I apologize, but I was unable to generate a response.',
+        createdAt: new Date()
       }
 
       // Add assistant response to history
-      const response = {
-        role: 'assistant' as const,
-        content: assistantMessage.content || 'I apologize, but I was unable to generate a response.'
-      }
-      this.conversationHistory.push(response)
+      this.messages.push({
+        role: 'assistant',
+        content: response.content
+      })
 
-      return {
-        id: completion.id,
-        ...response,
-        createdAt: new Date()
-      }
-    } catch (error) {
+      return response
+    } catch (error: any) {
       console.error('Error in sending message:', error)
-      throw error
+      throw new Error(JSON.stringify({ 
+        message: 'Failed to get response from AI Assistant. Please try again.' 
+      }))
     }
   }
 
-  async cleanup() {
-    if (this.mockMode) {
-      console.log('Cleaning up mock assistant')
-      return
-    }
+  cleanup(): void {
     // Clear conversation history but keep system message
-    this.conversationHistory = [{
+    this.messages = [{
       role: 'system',
-      content: AI_ASSISTANT_SYSTEM_PROMPT
-    }] as Message[]
+      content: SYSTEM_PROMPT
+    }]
   }
-} 
+}   
