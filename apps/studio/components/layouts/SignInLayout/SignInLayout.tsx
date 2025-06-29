@@ -91,23 +91,12 @@ const SignInLayout = ({
           <nav className="relative flex items-center justify-between sm:h-10">
             <div className="flex items-center flex-grow flex-shrink-0 lg:flex-grow-0">
               <div className="flex items-center justify-between w-full md:w-auto">
-                <Link href={logoLinkToMarketingSite ? 'https://supabase.com' : '/organizations'}>
-                  <Image
-                    src={
-                      resolvedTheme?.includes('dark')
-                        ? `${BASE_PATH}/img/supabase-dark.svg`
-                        : `${BASE_PATH}/img/supabase-light.svg`
-                    }
-                    alt="Supabase Logo"
-                    height={24}
-                    width={120}
-                  />
-                </Link>
+                {/* Supabase logo removed for Tablr rebrand */}
               </div>
             </div>
 
             <div className="items-center hidden space-x-3 md:ml-10 md:flex md:pr-4">
-              <DocsButton abbrev={false} href="https://supabase.com/docs" />
+              {/* DocsButton removed for Tablr rebrand */}
             </div>
           </nav>
         </div>

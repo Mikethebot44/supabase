@@ -85,12 +85,12 @@ export const HelpPopover = () => {
                   })
                 }}
               >
-                Supabase Assistant
+                Tablr Assistant
               </ButtonGroupItem>
             )}
             <ButtonGroupItem size="tiny" icon={<Wrench strokeWidth={1.5} size={14} />} asChild>
               <a
-                href="https://supabase.com/docs/guides/platform/troubleshooting"
+                href="#"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -98,13 +98,13 @@ export const HelpPopover = () => {
               </a>
             </ButtonGroupItem>
             <ButtonGroupItem size="tiny" icon={<BookOpen strokeWidth={1.5} size={14} />} asChild>
-              <a href="https://supabase.com/docs/" target="_blank" rel="noreferrer">
+              <a href="#" target="_blank" rel="noreferrer">
                 Docs
               </a>
             </ButtonGroupItem>
             <ButtonGroupItem size="tiny" icon={<Activity strokeWidth={1.5} size={14} />} asChild>
-              <a href="https://status.supabase.com/" target="_blank" rel="noreferrer">
-                Supabase Status
+              <a href="#" target="_blank" rel="noreferrer">
+                Tablr Status
               </a>
             </ButtonGroupItem>
             <ButtonGroupItem size="tiny" icon={<Mail strokeWidth={1.5} size={14} />}>

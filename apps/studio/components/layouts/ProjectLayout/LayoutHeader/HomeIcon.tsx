@@ -29,13 +29,7 @@ export const HomeIcon = () => {
 
   return (
     <Link href={href} className="items-center justify-center flex-shrink-0 hidden md:flex">
-      <Image
-        alt="Studio"
-        src={`${router.basePath}/img/supabase-logo.svg`}
-        width={18}
-        height={18}
-        className="w-[18px] h-[18px]"
-      />
+      {/* Supabase logo removed for Tablr rebrand */}
     </Link>
   )
 }
