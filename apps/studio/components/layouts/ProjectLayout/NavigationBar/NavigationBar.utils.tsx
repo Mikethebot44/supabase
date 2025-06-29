@@ -1,4 +1,4 @@
-import { Blocks, FileText, Lightbulb, List, Logs, Settings } from 'lucide-react'
+import { Blocks, FileText, Lightbulb, List, Logs, Settings, Zap } from 'lucide-react'
 
 import { ICON_SIZE, ICON_STROKE_WIDTH } from 'components/interfaces/Sidebar'
 import { generateAuthMenu } from 'components/layouts/AuthLayout/AuthLayout.utils'
@@ -38,6 +38,12 @@ export const generateToolRoutes = (ref?: string, project?: Project, features?: {
       link: !IS_PLATFORM
         ? `/project/${ref}/sql/1`
         : ref && (isProjectBuilding ? buildingUrl : `/project/${ref}/sql`),
+    },
+    {
+      key: 'workflows',
+      label: 'Workflows',
+      icon: <Zap size={ICON_SIZE} strokeWidth={ICON_STROKE_WIDTH} />,
+      link: ref && (isProjectBuilding ? buildingUrl : `/project/${ref}/workflows`),
     },
   ]
 }
