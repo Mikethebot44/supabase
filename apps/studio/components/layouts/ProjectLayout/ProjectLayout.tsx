@@ -5,7 +5,6 @@ import { forwardRef, Fragment, PropsWithChildren, ReactNode, useEffect, useState
 
 import { useParams } from 'common'
 import ProjectAPIDocs from 'components/interfaces/ProjectAPIDocs/ProjectAPIDocs'
-import { AIAssistant } from 'components/ui/AIAssistantPanel/AIAssistant'
 import { AIAgentTrigger, AIAgentSidebar } from 'components/ui/AIAgent'
 import AISettingsModal from 'components/ui/AISettingsModal'
 import { EditorPanel } from 'components/ui/EditorPanel/EditorPanel'
@@ -122,14 +121,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
 
     useEffect(() => {
       const handler = (e: KeyboardEvent) => {
-        // Cmd+Shift+A: Open AI Agent Sidebar, close Editor Panel  
-        if (e.metaKey && e.shiftKey && e.key === 'A' && !e.altKey) {
-          setEditorPanel({ open: false })
-          aiSnap.toggleAssistant()
-          e.preventDefault()
-          e.stopPropagation()
-        }
-        // Cmd+I: Open AI Assistant, close Editor Panel (existing functionality)
+        // Cmd+I: Open AI Assistant, close Editor Panel
         if (e.metaKey && e.key === 'i' && !e.altKey && !e.shiftKey) {
           setEditorPanel({ open: false })
           aiSnap.toggleAssistant()
@@ -261,7 +253,7 @@ const ProjectLayout = forwardRef<HTMLDivElement, PropsWithChildren<ProjectLayout
                   <>
                     <ResizableHandle withHandle />
                     <ResizablePanel
-                      id="panel-ai-agent"
+                      id="panel-ai-assistant"
                       minSize={25}
                       maxSize={50}
                       defaultSize={30}

@@ -222,6 +222,8 @@ export const createAiAssistantState = (): AiAssistantState => {
       state.open = !state.open
     },
 
+
+
     // Chat management
     get activeChat(): ChatSession | undefined {
       return state.activeChatId ? state.chats[state.activeChatId] : undefined

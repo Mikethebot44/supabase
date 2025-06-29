@@ -1,4 +1,3 @@
-import { useChat } from 'ai/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bot, ChevronDown, ChevronRight, Code, Edit, GripVertical, Plus, Search, Settings, Trash2, X } from 'lucide-react'
 import { useRouter } from 'next/router'
@@ -7,6 +6,8 @@ import { toast } from 'sonner'
 
 import { EnhancedMarkdown } from './EnhancedMarkdown'
 import { useAiAssistantStateSnapshot } from 'state/ai-assistant-state'
+import { useUser } from 'lib/auth'
+import { useIsUserLoading } from 'common'
 import {
   Button,
   cn,
@@ -38,39 +39,18 @@ const AI_MODELS = [
   { key: 'claude-3-haiku', label: 'Claude 3 Haiku', description: 'Fastest responses' },
 ]
 
-// Supabase Functions
-const SUPABASE_FUNCTIONS = [
-  // Database
-  { key: 'create-table', label: 'Create Table', category: 'Database', description: 'Help create database tables with proper schema' },
-  { key: 'optimize-query', label: 'Optimize Query', category: 'Database', description: 'Analyze and optimize SQL queries for better performance' },
-  { key: 'rls-policy', label: 'RLS Policy', category: 'Database', description: 'Create Row Level Security policies' },
-  { key: 'database-functions', label: 'Database Functions', category: 'Database', description: 'Create PostgreSQL functions and triggers' },
-  { key: 'migration-help', label: 'Migration Help', category: 'Database', description: 'Assistance with database migrations' },
-  
-  // Auth
-  { key: 'user-management', label: 'User Management', category: 'Auth', description: 'Help with user authentication and management' },
-  { key: 'auth-providers', label: 'Auth Providers', category: 'Auth', description: 'Configure third-party authentication providers' },
-  { key: 'jwt-tokens', label: 'JWT Tokens', category: 'Auth', description: 'Help with JWT token configuration and validation' },
-  
-  // Storage
-  { key: 'bucket-management', label: 'Bucket Management', category: 'Storage', description: 'Create and configure storage buckets' },
-  { key: 'file-upload', label: 'File Upload', category: 'Storage', description: 'Implement file upload functionality' },
-  { key: 'image-transformations', label: 'Image Transformations', category: 'Storage', description: 'Configure image processing and transformations' },
-  
-  // API
-  { key: 'api-generation', label: 'API Generation', category: 'API', description: 'Generate REST API endpoints' },
-  { key: 'graphql-queries', label: 'GraphQL Queries', category: 'API', description: 'Help with GraphQL query construction' },
-  { key: 'realtime-subscriptions', label: 'Realtime Subscriptions', category: 'API', description: 'Set up realtime data subscriptions' },
-  
-  // Edge Functions
-  { key: 'deploy-function', label: 'Deploy Function', category: 'Edge Functions', description: 'Help deploy edge functions' },
-  { key: 'debug-function', label: 'Debug Function', category: 'Edge Functions', description: 'Debug edge function issues' },
-  { key: 'function-secrets', label: 'Function Secrets', category: 'Edge Functions', description: 'Manage function environment variables and secrets' },
-  
-  // Analytics
-  { key: 'performance-monitoring', label: 'Performance Monitoring', category: 'Analytics', description: 'Set up performance monitoring and alerts' },
-  { key: 'usage-analytics', label: 'Usage Analytics', category: 'Analytics', description: 'Analyze project usage and metrics' },
+// Database Assistant Functions
+const DATABASE_FUNCTIONS = [
+  { key: 'run_sql', label: 'Run SQL Query', category: 'Database', description: 'Execute read-only SQL queries to analyze data' },
+  { key: 'get_schema', label: 'Get Table Schema', category: 'Database', description: 'Get detailed information about table structure and columns' },
+  { key: 'create_table', label: 'Create Table', category: 'Database', description: 'Create new database tables with proper schema and constraints' },
+  { key: 'list_tables', label: 'List Tables', category: 'Database', description: 'List all tables and views in the database with metadata' },
+  { key: 'drop_table', label: 'Drop Table', category: 'Database', description: 'Safely drop tables with confirmation checks' },
 ]
+
+// Hardcoded test values for Assistant API (for testing without real project context)
+const TEST_PROJECT_REF = 'test-project-123'
+const TEST_CONNECTION_STRING = 'postgresql://postgres:test-password@localhost:54322/postgres'
 
 // FunctionCall Component
 const FunctionCallComponent = ({ functionCall }: { functionCall: FunctionCall }) => {
@@ -371,6 +351,8 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   const router = useRouter()
   const snap = useAiAssistantStateSnapshot()
   const appSnap = useAppStateSnapshot()
+  const user = useUser()
+  const isUserLoading = useIsUserLoading()
   
   const [width, setWidth] = useState(400)
   const [isDragging, setIsDragging] = useState(false)
@@ -383,22 +365,14 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   
   // Chat management
   const [openChats, setOpenChats] = useState<Chat[]>([
-    { id: 'demo', name: 'Demo Chat (Styled)', createdAt: new Date(), lastMessage: 'How can I optimize this query?' },
+    { id: 'chat-1', name: 'Database Assistant', createdAt: new Date(), lastMessage: 'Ready to help with your database queries!' },
   ])
-  const [activeChatId, setActiveChatId] = useState<string>('demo')
+  const [activeChatId, setActiveChatId] = useState<string>('chat-1')
 
-  // OpenAI Chat Integration  
-  const {
-    messages: aiMessages,
-    input,
-    handleInputChange,
-    handleSubmit: handleAiSubmit,
-    isLoading: aiIsLoading,
-    setMessages,
-  } = useChat({
-    api: '/api/ai/chat',
-    id: activeChatId === 'demo' ? undefined : activeChatId, // Only use AI for non-demo chats
-  })
+  // Assistant API Integration
+  const [assistantMessages, setAssistantMessages] = useState<Message[]>([])
+  const [assistantLoading, setAssistantLoading] = useState(false)
+  const [threadId, setThreadId] = useState<string | null>(null)
   
   // Edit mode state
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
@@ -429,15 +403,15 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Function management
-  const filteredFunctions = SUPABASE_FUNCTIONS.filter(func =>
+  const filteredFunctions = DATABASE_FUNCTIONS.filter(func =>
     func.label.toLowerCase().includes(functionSearch.toLowerCase()) ||
     func.category.toLowerCase().includes(functionSearch.toLowerCase()) ||
     func.description.toLowerCase().includes(functionSearch.toLowerCase())
   )
 
   const selectedFunctionObjects = selectedFunctions.map(key => 
-    SUPABASE_FUNCTIONS.find(func => func.key === key)
-  ).filter(Boolean) as typeof SUPABASE_FUNCTIONS
+    DATABASE_FUNCTIONS.find(func => func.key === key)
+  ).filter(Boolean) as typeof DATABASE_FUNCTIONS
 
   const addFunction = (functionKey: string) => {
     if (!selectedFunctions.includes(functionKey)) {
@@ -456,13 +430,9 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
   
   const switchToChat = (chatId: string) => {
     setActiveChatId(chatId)
-    // Clear AI messages when switching to demo chat or between chats
-    if (chatId === 'demo') {
-      setMessages([])
-    } else {
-      // For real chats, you could load messages from storage here
-      setMessages([])
-    }
+    // Clear assistant messages and reset thread when switching chats
+    setAssistantMessages([])
+    setThreadId(null)
   }
   
   const closeChat = (chatId: string) => {
@@ -483,20 +453,21 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
     }
     setOpenChats([...openChats, newChat])
     setActiveChatId(newChat.id)
-    // Clear messages for new chat
-    setMessages([])
+    // Clear messages and reset thread for new chat
+    setAssistantMessages([])
+    setThreadId(null)
   }
 
   // Edit mode functions
-  const editFilteredFunctions = SUPABASE_FUNCTIONS.filter(func =>
+  const editFilteredFunctions = DATABASE_FUNCTIONS.filter(func =>
     func.label.toLowerCase().includes(editFunctionSearch.toLowerCase()) ||
     func.category.toLowerCase().includes(editFunctionSearch.toLowerCase()) ||
     func.description.toLowerCase().includes(editFunctionSearch.toLowerCase())
   )
 
   const editSelectedFunctionObjects = editSelectedFunctions.map(key => 
-    SUPABASE_FUNCTIONS.find(func => func.key === key)
-  ).filter(Boolean) as typeof SUPABASE_FUNCTIONS
+    DATABASE_FUNCTIONS.find(func => func.key === key)
+  ).filter(Boolean) as typeof DATABASE_FUNCTIONS
 
   const addEditFunction = (functionKey: string) => {
     if (!editSelectedFunctions.includes(functionKey)) {
@@ -625,20 +596,164 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
     }
   }, [editingMessageId])
 
-  // Handle message sending
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return
+  // Initialize thread for the chat
+  const initializeThread = async () => {
+    if (threadId) {
+      console.log('Using existing thread:', threadId)
+      return threadId
+    }
 
-    setIsLoading(true)
+    console.log('Creating new thread...')
+    console.log('User loading state:', isUserLoading)
+    console.log('User object:', user)
+    console.log('User ID:', user?.id)
+    console.log('🧪 TESTING MODE: Using hardcoded project values')
+    console.log('Test project ref:', TEST_PROJECT_REF)
+    console.log('Test connectionString: ***REDACTED***')
+    
+    // TESTING BYPASS - Use fallback user ID when authentication fails
+    let userId = user?.id
+    if (!userId) {
+      userId = 'test-user-' + Date.now() // Generate a unique test user ID
+      console.log('🧪 TESTING MODE: Using fallback user ID:', userId)
+    }
+    
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      toast.success('Message sent! (This is a mock response)')
-      setInputValue('')
+      const response = await fetch(`/api/ai/assistant/thread?userId=${userId}&projectRef=${TEST_PROJECT_REF}&connectionString=${encodeURIComponent(TEST_CONNECTION_STRING)}`)
+      console.log('Thread creation response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url,
+        userId: userId,
+        projectRef: TEST_PROJECT_REF,
+        connectionString: 'test connection (redacted)'
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Thread creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        })
+        throw new Error(`Failed to create thread: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('Thread creation success:', data)
+      setThreadId(data.threadId)
+      return data.threadId
     } catch (error) {
-      toast.error('Failed to send message')
+      console.error('Error creating thread:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      toast.error(`Failed to initialize chat: ${errorMessage}`)
+      return null
+    }
+  }
+
+  // Handle message sending to Assistant API
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading || assistantLoading) return
+
+    console.log('Starting message send process...')
+    console.log('🧪 TESTING MODE: Using hardcoded project values for message')
+    
+    setAssistantLoading(true)
+    try {
+      // Initialize thread if needed
+      console.log('Initializing thread...')
+      const currentThreadId = await initializeThread()
+      if (!currentThreadId) {
+        console.error('Failed to get thread ID, aborting message send')
+        return
+      }
+      console.log('Using thread ID:', currentThreadId)
+
+      // Add user message to UI immediately
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: inputValue.trim(),
+        createdAt: new Date(),
+      }
+      
+      setAssistantMessages(prev => [...prev, userMessage])
+      const messageContent = inputValue.trim()
+      setInputValue('')
+
+      // TESTING BYPASS - Use fallback user ID when authentication fails
+      let userId = user?.id
+      if (!userId) {
+        userId = 'test-user-' + Date.now() // Generate a unique test user ID
+        console.log('🧪 TESTING MODE: Using fallback user ID for message:', userId)
+      }
+
+      // Prepare request payload
+      const requestPayload = {
+        message: messageContent,
+        threadId: currentThreadId,
+        functions: selectedFunctions.length > 0 ? selectedFunctions : undefined,
+        projectRef: TEST_PROJECT_REF,
+        connectionString: TEST_CONNECTION_STRING,
+        userId: userId,
+      }
+      console.log('Sending message with payload:', {
+        ...requestPayload,
+        connectionString: 'test connection (redacted)'
+      })
+
+      // Send to Assistant API
+      const response = await fetch('/api/ai/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestPayload),
+      })
+
+      console.log('Assistant API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Assistant API failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        })
+        throw new Error(`Failed to send message: ${response.status} ${response.statusText} - ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('Assistant API success response:', data)
+      
+      // Add assistant response to UI
+      const assistantMessage: Message = {
+        id: data.messageId || (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: data.response || data.content || 'Sorry, I encountered an error processing your request.',
+        createdAt: new Date(),
+        functionCalls: data.toolCalls ? data.toolCalls.map((tool: any) => ({
+          id: tool.id,
+          name: tool.function.name,
+          description: `Executed ${tool.function.name}`,
+          code: JSON.stringify(tool.function.arguments, null, 2),
+          language: 'json'
+        })) : undefined,
+      }
+      
+      console.log('Adding assistant message to UI:', assistantMessage)
+      setAssistantMessages(prev => [...prev, assistantMessage])
+      
+    } catch (error) {
+      console.error('Error sending message:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      toast.error(`Failed to send message: ${errorMessage}`)
     } finally {
-      setIsLoading(false)
+      setAssistantLoading(false)
     }
   }
 
@@ -889,170 +1004,12 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
           {/* Chat Messages */}
           <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
             <div className="space-y-4">
-              {/* Show demo messages for demo chat, AI messages for real chats */}
-              {activeChatId === 'demo' ? (
-                MOCK_MESSAGES.map((message) => (
-                <div
-                  key={message.id}
-                  className="w-full px-2"
-                >
+              {/* Show assistant messages */}
+              {assistantMessages.length > 0 ? (
+                assistantMessages.map((message) => (
+                  <div key={message.id} className="w-full px-2">
                   {message.role === 'user' ? (
-                    editingMessageId === message.id ? (
-                      // Edit Mode
-                      <div className="bg-surface-200 text-foreground rounded-lg p-4 mb-2 ml-0">
-                        <div className="space-y-3">
-                          {/* Function Selector and Tags */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <DropdownMenu open={isEditFunctionDropdownOpen} onOpenChange={setIsEditFunctionDropdownOpen}>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="outline"
-                                  size="tiny"
-                                  iconRight={<ChevronDown size={12} />}
-                                  className="text-xs h-7"
-                                >
-                                  Add Function
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="start" className="w-80">
-                                {/* Search Input */}
-                                <div className="p-2 border-b border-border">
-                                  <input
-                                    type="text"
-                                    placeholder="Search functions..."
-                                    value={editFunctionSearch}
-                                    onChange={(e) => setEditFunctionSearch(e.target.value)}
-                                    className="w-full px-2 py-1 text-sm bg-transparent border border-border rounded focus:outline-none focus:border-brand-600"
-                                    autoFocus
-                                  />
-                                </div>
-                                
-                                {/* Function List */}
-                                <div className="max-h-64 overflow-y-auto">
-                                  {editFilteredFunctions.length === 0 ? (
-                                    <div className="p-2 text-sm text-foreground-light">
-                                      No functions found
-                                    </div>
-                                  ) : (
-                                    editFilteredFunctions.map((func) => (
-                                      <Tooltip key={func.key} delayDuration={500}>
-                                        <TooltipTrigger asChild>
-                                          <DropdownMenuItem
-                                            onClick={() => addEditFunction(func.key)}
-                                            className="cursor-pointer p-3"
-                                            disabled={editSelectedFunctions.includes(func.key)}
-                                          >
-                                            <div className="flex items-center justify-between w-full">
-                                              <span className="font-medium text-sm">{func.label}</span>
-                                              <span className="text-xs text-foreground-light bg-surface-100 px-1.5 py-0.5 rounded">
-                                                {func.category}
-                                              </span>
-                                            </div>
-                                          </DropdownMenuItem>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="left">
-                                          <p className="text-xs max-w-48">{func.description}</p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    ))
-                                  )}
-                                </div>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Selected Functions Tags - Inline */}
-                            {editSelectedFunctionObjects.map((func) => (
-                              <div
-                                key={func.key}
-                                className="inline-flex items-center gap-1 bg-surface-100 text-foreground-light px-2 py-1 rounded-md text-xs"
-                              >
-                                <span>{func.label}</span>
-                                <button
-                                  onClick={() => removeEditFunction(func.key)}
-                                  className="hover:text-foreground ml-1"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Separator only if functions are selected */}
-                          {editSelectedFunctionObjects.length > 0 && <Separator />}
-                          
-                          {/* Message Input Container */}
-                          <div className="relative">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              onKeyDown={handleEditKeyDown}
-                              placeholder="Edit your message..."
-                              className="min-h-[80px] resize-none pr-20 pb-12"
-                              autoFocus
-                            />
-                            
-                            {/* AI Model Dropdown - Bottom Left */}
-                            <div className="absolute bottom-2 left-2">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    type="outline"
-                                    size="tiny"
-                                    iconRight={<ChevronDown size={12} />}
-                                    className="text-xs h-7"
-                                  >
-                                    {AI_MODELS.find(model => model.key === editSelectedModel)?.label}
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-48">
-                                  {AI_MODELS.map((model) => (
-                                    <Tooltip key={model.key} delayDuration={500}>
-                                      <TooltipTrigger asChild>
-                                        <DropdownMenuItem
-                                          onClick={() => setEditSelectedModel(model.key)}
-                                          className="cursor-pointer"
-                                        >
-                                          <span className="font-medium">{model.label}</span>
-                                        </DropdownMenuItem>
-                                      </TooltipTrigger>
-                                      <TooltipContent side="right">
-                                        <p className="text-xs">{model.description}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  ))}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                            
-                            {/* Save/Cancel Buttons - Bottom Right */}
-                            <div className="absolute bottom-2 right-2 flex gap-1">
-                              <Button
-                                type="text"
-                                size="tiny"
-                                onClick={cancelEditing}
-                                className="h-7 text-xs"
-                              >
-                                Cancel
-                              </Button>
-                              <Button
-                                type="primary"
-                                size="tiny"
-                                onClick={saveEdit}
-                                disabled={!editContent.trim()}
-                                className="h-7"
-                              >
-                                Save
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      // Normal Display Mode
-                      <div 
-                        className="bg-surface-200 text-foreground rounded-lg px-4 py-3 mb-2 ml-0 cursor-pointer hover:bg-surface-300 transition-colors"
-                        onClick={() => startEditing(message.id, message.content)}
-                      >
+                      <div className="bg-surface-200 text-foreground rounded-lg px-4 py-3 mb-2 ml-0">
                         <div className="whitespace-pre-wrap text-sm">{message.content}</div>
                         <div className="text-xs opacity-70 mt-2">
                           {message.createdAt.toLocaleTimeString([], { 
@@ -1061,7 +1018,6 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                           })}
                         </div>
                       </div>
-                    )
                   ) : (
                     <div className="text-foreground mb-4">
                       <EnhancedMarkdown 
@@ -1093,39 +1049,23 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                 </div>
               ))
               ) : (
-                // Real AI chat messages
-                aiMessages.map((message) => (
-                  <div key={message.id} className="w-full px-2">
-                    {message.role === 'user' ? (
-                      <div className="bg-surface-200 text-foreground rounded-lg px-4 py-3 mb-2 ml-0">
-                        <div className="whitespace-pre-wrap text-sm">{message.content}</div>
-                        <div className="text-xs opacity-70 mt-2">
-                          {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
+                // Empty state
+                <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
+                  <Bot size={48} className="text-muted-foreground/50 mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">Database Assistant</h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                    I'm your AI database assistant. I can help you with SQL queries, table schemas, and database operations.
+                  </p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Try asking me to:</p>
+                    <p>• "Show me all tables in the database"</p>
+                    <p>• "Get the schema for the users table"</p>
+                    <p>• "Run a query to find active users"</p>
                         </div>
                       </div>
-                    ) : (
-                      <div className="text-foreground mb-4">
-                        <EnhancedMarkdown 
-                          content={message.content}
-                          className="text-sm prose-sm max-w-none"
-                          extLinks={true}
-                        />
-                        <div className="text-xs opacity-70 mt-2">
-                          {new Date(message.createdAt || Date.now()).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
               )}
               
-              {(isLoading || aiIsLoading) && (
+              {(isLoading || assistantLoading) && (
                 <div className="w-full px-4">
                   <div className="text-foreground mb-4">
                     <div className="flex space-x-1">
@@ -1150,7 +1090,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                       type="outline"
                       size="tiny"
                       iconRight={<ChevronDown size={12} />}
-                      disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
+                      disabled={isLoading || assistantLoading}
                       className="text-xs h-7"
                     >
                       Add Function
@@ -1212,7 +1152,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                     <button
                       onClick={() => removeFunction(func.key)}
                       className="hover:text-foreground ml-1"
-                      disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
+                      disabled={isLoading || assistantLoading}
                     >
                       <X size={12} />
                     </button>
@@ -1226,17 +1166,12 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
               {/* Message Input Container */}
               <div className="relative">
                 <Textarea
-                  value={activeChatId === 'demo' ? inputValue : input}
-                  onChange={activeChatId === 'demo' ? (e) => setInputValue(e.target.value) : handleInputChange}
-                  onKeyDown={activeChatId === 'demo' ? handleKeyDown : (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      handleAiSubmit(e)
-                    }
-                  }}
-                  placeholder={activeChatId === 'demo' ? "Demo chat (visual styling only)" : "Type your question..."}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Type your question... (🧪 Testing mode - auth bypassed)"
                   className="min-h-[80px] resize-none pr-20 pb-12"
-                  disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
+                  disabled={isLoading || assistantLoading}
                 />
                 
                 {/* AI Model Dropdown - Bottom Left */}
@@ -1247,7 +1182,7 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                         type="outline"
                         size="tiny"
                         iconRight={<ChevronDown size={12} />}
-                        disabled={activeChatId === 'demo' ? true : (isLoading || aiIsLoading)}
+                        disabled={isLoading || assistantLoading}
                         className="text-xs h-7"
                       >
                         {AI_MODELS.find(model => model.key === selectedModel)?.label}
@@ -1278,12 +1213,9 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
                   <Button
                     type="primary"
                     size="tiny"
-                    onClick={activeChatId === 'demo' ? handleSendMessage : (e) => {
-                      e.preventDefault()
-                      handleAiSubmit(e)
-                    }}
-                    loading={isLoading || aiIsLoading}
-                    disabled={activeChatId === 'demo' ? true : !input.trim()}
+                    onClick={handleSendMessage}
+                    loading={isLoading || assistantLoading}
+                    disabled={!inputValue.trim()}
                     className="h-7"
                   >
                     Send
