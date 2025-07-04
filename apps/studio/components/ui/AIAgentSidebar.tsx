@@ -1051,17 +1051,6 @@ export const AIAgentSidebar = ({ className }: AIAgentSidebarProps) => {
               ) : (
                 // Empty state
                 <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                  <Bot size={48} className="text-muted-foreground/50 mb-4" />
-                  <h3 className="text-lg font-medium text-foreground mb-2">Database Assistant</h3>
-                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                    I'm your AI database assistant. I can help you with SQL queries, table schemas, and database operations.
-                  </p>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p>Try asking me to:</p>
-                    <p>• "Show me all tables in the database"</p>
-                    <p>• "Get the schema for the users table"</p>
-                    <p>• "Run a query to find active users"</p>
-                        </div>
                       </div>
               )}
               

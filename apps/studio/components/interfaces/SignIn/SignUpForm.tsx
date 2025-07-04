@@ -6,7 +6,9 @@ import { toast } from 'sonner'
 import * as yup from 'yup'
 
 import { useSignUpMutation } from 'data/misc/signup-mutation'
-import { BASE_PATH } from 'lib/constants'
+import { AuthService } from 'lib/auth-service'
+import { BASE_PATH, IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { customAuthService } from 'lib/custom-auth-service'
 import { passwordSchema } from 'lib/schemas'
 import {
   AlertDescription_Shadcn_,
@@ -61,14 +63,54 @@ const SignUpForm = () => {
     }${BASE_PATH}`
     const redirectTo = isInsideOAuthFlow
       ? `${redirectUrlBase}/authorize?auth_id=${searchParams.auth_id}${searchParams.token && `&token=${searchParams.token}`}`
-      : `${redirectUrlBase}/sign-in`
+      : `${redirectUrlBase}/auth/confirm`
 
-    signup({
-      email,
-      password,
-      hcaptchaToken: token ?? null,
-      redirectTo,
-    })
+    // Determine which auth method to use based on mode
+    if (IS_PLATFORM) {
+      // Platform mode - use AuthService
+      try {
+        const { error } = await AuthService.signUpWithEmail({
+          email,
+          password,
+          options: {
+            captchaToken: token ?? undefined,
+          },
+        })
+
+        if (!error) {
+          toast.success('Signed up successfully!')
+          setIsSubmitted(true)
+        }
+      } catch (error: any) {
+        setCaptchaToken(null)
+        captchaRef.current?.resetCaptcha()
+        toast.error(`Failed to sign up: ${error.message}`)
+      }
+    } else if (CUSTOM_AUTH_ENABLED && customAuthService) {
+      // Custom auth mode - use custom auth service
+      try {
+        const { error } = await customAuthService.signUp(email, password)
+        
+        if (!error) {
+          toast.success('Signed up successfully!')
+          setIsSubmitted(true)
+        } else {
+          throw error
+        }
+      } catch (error: any) {
+        setCaptchaToken(null)
+        captchaRef.current?.resetCaptcha()
+        toast.error(`Failed to sign up: ${error.message}`)
+      }
+    } else {
+      // Self-hosted mode - use existing signup mutation
+      signup({
+        email,
+        password,
+        hcaptchaToken: token ?? null,
+        redirectTo,
+      })
+    }
   }
 
   return (

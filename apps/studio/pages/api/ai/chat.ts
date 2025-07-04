@@ -57,7 +57,7 @@ Provide clear, practical advice with code examples when helpful. For database-re
 - Using appropriate data types
 - Following Supabase naming conventions
 
-Keep responses concise and actionable.`,
+Keep responses concise`,
       messages: messages,
     })
 

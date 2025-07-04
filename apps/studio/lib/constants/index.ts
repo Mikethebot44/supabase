@@ -2,7 +2,9 @@
 // eslint-disable-next-line barrel-files/avoid-re-export-all
 export * from './infrastructure'
 
-export const IS_PLATFORM = process.env.NEXT_PUBLIC_IS_PLATFORM === 'true'
+// Ensure consistent boolean values between server and client to prevent hydration issues
+export const IS_PLATFORM = Boolean(process.env.NEXT_PUBLIC_IS_PLATFORM === 'true')
+export const CUSTOM_AUTH_ENABLED = Boolean(process.env.NEXT_PUBLIC_CUSTOM_AUTH_ENABLED === 'true')
 
 export const API_URL = (() => {
   if (process.env.NODE_ENV === 'test') return 'http://localhost:3000/api'

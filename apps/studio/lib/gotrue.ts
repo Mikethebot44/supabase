@@ -1,8 +1,30 @@
-import { getAccessToken, type User } from 'common/auth'
+import { getAccessToken as getCommonAccessToken, type User } from 'common/auth'
 import { gotrueClient } from 'common/gotrue'
+import { CUSTOM_AUTH_ENABLED, IS_PLATFORM } from './constants'
+import { customAuthService } from './custom-auth-service'
 
 export const auth = gotrueClient
-export { getAccessToken }
+
+// Enhanced getAccessToken that works with custom auth mode
+export async function getAccessToken() {
+  // Use custom auth service when in custom auth mode
+  if (CUSTOM_AUTH_ENABLED && !IS_PLATFORM && customAuthService) {
+    try {
+      const { data: { session }, error } = await customAuthService.getSession()
+      if (error) {
+        console.error('Failed to get session from custom auth:', error)
+        return undefined
+      }
+      return session?.access_token
+    } catch (error) {
+      console.error('Error getting access token from custom auth:', error)
+      return undefined
+    }
+  }
+  
+  // Fall back to common auth for platform mode or self-hosted mode
+  return getCommonAccessToken()
+}
 
 export const DEFAULT_FALLBACK_PATH = '/organizations'
 

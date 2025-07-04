@@ -2,7 +2,7 @@ import { QueryKey, useQuery, UseQueryOptions } from '@tanstack/react-query'
 
 import { handleError as handleErrorFetchers, post } from 'data/fetchers'
 import { useSelectedProject } from 'hooks/misc/useSelectedProject'
-import { MB, PROJECT_STATUS } from 'lib/constants'
+import { MB, PROJECT_STATUS, IS_PLATFORM } from 'lib/constants'
 import {
   ROLE_IMPERSONATION_NO_RESULTS,
   ROLE_IMPERSONATION_SQL_LINE_COUNT,
@@ -49,6 +49,11 @@ export async function executeSql<T = any>(
   ) => Promise<{ data: T } | { error: ResponseError }>
 ): Promise<{ result: T }> {
   if (!projectRef) throw new Error('projectRef is required')
+  
+  // In custom auth mode, we don't have access to platform pg-meta endpoints
+  if (!IS_PLATFORM) {
+    throw new Error('SQL execution via platform endpoints is not available in custom auth mode')
+  }
 
   const sqlSize = new Blob([sql]).size
   // [Joshen] I think the limit is around 1MB from testing, but its not exactly 1MB it seems

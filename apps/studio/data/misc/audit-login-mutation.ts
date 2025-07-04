@@ -3,9 +3,15 @@ import { useMutation, UseMutationOptions } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { handleError, post } from 'data/fetchers'
+import { IS_PLATFORM } from 'lib/constants'
 import type { ResponseError } from 'types'
 
 export async function addLoginEvent() {
+  // Only add login events in platform mode
+  if (!IS_PLATFORM) {
+    return
+  }
+  
   const { error } = await post('/platform/profile/audit-login')
   if (error) handleError(error)
 }

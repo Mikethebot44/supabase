@@ -2,9 +2,39 @@ import SignInWithGitHub from 'components/interfaces/SignIn/SignInWithGitHub'
 import SignUpForm from 'components/interfaces/SignIn/SignUpForm'
 import SignInLayout from 'components/layouts/SignInLayout/SignInLayout'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
+import { useEffect, useState } from 'react'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
 import type { NextPageWithLayout } from 'types'
 
 const SignUpPage: NextPageWithLayout = () => {
+  const router = useRouter()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isMounted) return
+
+    // Redirect logic based on mode:
+    // - Self-hosted (no auth): redirect to default project
+    // - Platform/Custom auth: show sign-up form
+    if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
+      // on selfhosted instance just redirect to projects page
+      router.replace('/project/default')
+    }
+  }, [router, isMounted])
+
+  // Show loading during SSR and initial client render to prevent hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+      </div>
+    )
+  }
   return (
     <>
       <div className="flex flex-col gap-5">

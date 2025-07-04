@@ -56,13 +56,16 @@ const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
   }
 
   const { data: organizations, isSuccess: orgsInitialized } = useOrganizationsQuery({
-    enabled: isLoggedIn,
+    enabled: isLoggedIn && IS_PLATFORM,
   })
   const organizationsRef = useLatest(organizations)
 
   useEffect(() => {
     // check if current route is excempted from route validation check
     if (isExceptUrl() || !isLoggedIn) return
+
+    // Skip organization validation in custom auth mode
+    if (!IS_PLATFORM) return
 
     if (orgsInitialized && slug) {
       // Check validity of organization that user is trying to access
@@ -78,13 +81,16 @@ const RouteValidationWrapper = ({ children }: PropsWithChildren<{}>) => {
   }, [orgsInitialized])
 
   const { data: projects, isSuccess: projectsInitialized } = useProjectsQuery({
-    enabled: isLoggedIn,
+    enabled: isLoggedIn && IS_PLATFORM,
   })
   const projectsRef = useLatest(projects)
 
   useEffect(() => {
     // check if current route is excempted from route validation check
     if (isExceptUrl() || !isLoggedIn) return
+
+    // Skip project validation in custom auth mode - allow access to any project ref
+    if (!IS_PLATFORM) return
 
     if (projectsInitialized && ref) {
       // Check validity of project that the user is trying to access

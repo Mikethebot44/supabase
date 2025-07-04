@@ -3,23 +3,45 @@ import SignInForm from 'components/interfaces/SignIn/SignInForm'
 import SignInWithGitHub from 'components/interfaces/SignIn/SignInWithGitHub'
 import { AuthenticationLayout } from 'components/layouts/AuthenticationLayout'
 import SignInLayout from 'components/layouts/SignInLayout/SignInLayout'
-import { IS_PLATFORM } from 'lib/constants'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
 import { Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { NextPageWithLayout } from 'types'
 import { Button } from 'ui'
 
 const SignInPage: NextPageWithLayout = () => {
   const router = useRouter()
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Handle client-side mounting to prevent hydration issues
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
-    if (!IS_PLATFORM) {
+    // Only run redirect logic on client-side after mounting
+    if (!isMounted) return
+
+    // Redirect logic based on mode:
+    // - Self-hosted (no auth): redirect to default project
+    // - Platform/Custom auth: show sign-in form
+    if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
       // on selfhosted instance just redirect to projects page
       router.replace('/project/default')
     }
-  }, [router])
+  }, [router, isMounted])
+
+  // Show loading during SSR and initial client render to prevent hydration mismatch
+  if (!isMounted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+        <p className="mt-2 text-foreground-light">Loading...</p>
+      </div>
+    )
+  }
 
   return (
     <>

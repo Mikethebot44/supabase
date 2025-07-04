@@ -119,7 +119,31 @@ export const useIsLoggedIn = () => {
 export const useIsMFAEnabled = () => {
   const user = useUser()
 
-  return user !== null && user.factors && user.factors.length > 0
+  // Use proper getUser() call instead of direct factors access to avoid userStorage restrictions
+  const [mfaEnabled, setMfaEnabled] = useState(false)
+  
+  useEffect(() => {
+    const checkMFA = async () => {
+      if (user !== null) {
+        try {
+          const { data, error } = await gotrueClient.getUser()
+          if (!error && data?.user?.factors) {
+            setMfaEnabled(data.user.factors.length > 0)
+          } else {
+            setMfaEnabled(false)
+          }
+        } catch {
+          setMfaEnabled(false)
+        }
+      } else {
+        setMfaEnabled(false)
+      }
+    }
+    
+    checkMFA()
+  }, [user])
+
+  return mfaEnabled
 }
 
 export const signOut = async () => await gotrueClient.signOut()

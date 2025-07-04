@@ -1,6 +1,6 @@
 import { AuthClient, navigatorLock, User } from '@supabase/auth-js'
 
-export const STORAGE_KEY = process.env.NEXT_PUBLIC_STORAGE_KEY || 'supabase.dashboard.auth.token'
+export const STORAGE_KEY = process.env.NEXT_PUBLIC_STORAGE_KEY || 'supabase.studio.auth.token'
 export const AUTH_DEBUG_KEY =
   process.env.NEXT_PUBLIC_AUTH_DEBUG_KEY || 'supabase.dashboard.auth.debug'
 export const AUTH_DEBUG_PERSISTED_KEY =
@@ -123,7 +123,7 @@ export const gotrueClient = new AuthClient({
   lock: navigatorLockEnabled ? navigatorLock : undefined,
 
   ...('localStorage' in globalThis
-    ? { storage: globalThis.localStorage, userStorage: globalThis.localStorage }
+    ? { storage: globalThis.localStorage }
     : null),
 })
 

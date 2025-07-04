@@ -146,7 +146,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      ...(process.env.NEXT_PUBLIC_IS_PLATFORM === 'true'
+      ...(process.env.NEXT_PUBLIC_IS_PLATFORM === 'true' || process.env.NEXT_PUBLIC_CUSTOM_AUTH_ENABLED === 'true'
         ? [
             {
               source: '/',
@@ -162,7 +162,7 @@ const nextConfig = {
             },
             {
               source: '/',
-              destination: '/org',
+              destination: process.env.NEXT_PUBLIC_IS_PLATFORM === 'true' ? '/org' : '/project/default',
               permanent: false,
             },
             {

@@ -7,6 +7,9 @@ import { BASE_PATH } from 'lib/constants'
 
 import { useLastSignIn } from 'hooks/misc/useLastSignIn'
 import { auth, buildPathWithParams } from 'lib/gotrue'
+import { AuthService } from 'lib/auth-service'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { customAuthService } from 'lib/custom-auth-service'
 import { Button } from 'ui'
 import { LastSignInWrapper } from './LastSignInWrapper'
 
@@ -27,10 +30,26 @@ const SignInWithGitHub = () => {
         }${BASE_PATH}/sign-in-mfa?method=github`
       )
 
-      const { error } = await auth.signInWithOAuth({
-        provider: 'github',
-        options: { redirectTo },
-      })
+      // Determine which auth method to use based on mode
+      let result
+      if (IS_PLATFORM) {
+        // Platform mode - use AuthService
+        result = await AuthService.signInWithOAuth({
+          provider: 'github',
+          redirectTo,
+        })
+      } else if (CUSTOM_AUTH_ENABLED && customAuthService) {
+        // Custom auth mode - use custom auth service
+        result = await customAuthService.signInWithOAuth('github')
+      } else {
+        // Self-hosted mode - use existing auth
+        result = await auth.signInWithOAuth({
+          provider: 'github',
+          options: { redirectTo },
+        })
+      }
+      
+      const { error } = result
 
       if (error) throw error
       else setLastSignInUsed('github')

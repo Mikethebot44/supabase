@@ -16,8 +16,10 @@ import { getResourcesExceededLimitsOrg } from 'components/ui/OveragesBanner/Over
 import { useOrgUsageQuery } from 'data/usage/org-usage-query'
 import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProject } from 'hooks/misc/useSelectedProject'
-import { IS_PLATFORM } from 'lib/constants'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
 import { useAppStateSnapshot } from 'state/app-state'
+import { AuthStatusBadge } from 'components/ui/AuthStatusBadge'
+import { AuthUserControls } from 'components/ui/AuthUserControls'
 import { Badge, cn } from 'ui'
 import { BreadcrumbsView } from './BreadcrumbsView'
 import { FeedbackDropdown } from './FeedbackDropdown'
@@ -185,13 +187,17 @@ const LayoutHeader = ({
         </div>
         <div className="flex items-center gap-x-2">
           {customHeaderComponents && customHeaderComponents}
-          {IS_PLATFORM ? (
+          
+          {/* Auth Status Badge - always visible */}
+          <AuthStatusBadge className="hidden lg:flex" />
+          
+          {IS_PLATFORM || CUSTOM_AUTH_ENABLED ? (
             <>
-              <FeedbackDropdown />
+              {IS_PLATFORM && <FeedbackDropdown />}
 
               <div className="overflow-hidden flex items-center rounded-full border">
-                <HelpPopover />
-                <NotificationsPopoverV2 />
+                {IS_PLATFORM && <HelpPopover />}
+                {IS_PLATFORM && <NotificationsPopoverV2 />}
                 <AnimatePresence initial={false}>
                   {!!projectRef && (
                     <>
@@ -201,7 +207,9 @@ const LayoutHeader = ({
                   )}
                 </AnimatePresence>
               </div>
-              <UserDropdown />
+              
+              {/* Enhanced User Controls */}
+              <AuthUserControls />
             </>
           ) : (
             <>

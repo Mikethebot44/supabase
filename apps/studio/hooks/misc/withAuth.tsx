@@ -5,7 +5,9 @@ import { toast } from 'sonner'
 import { usePermissionsQuery } from 'data/permissions/permissions-query'
 import { useAuthenticatorAssuranceLevelQuery } from 'data/profile/mfa-authenticator-assurance-level-query'
 import { useAuth } from 'lib/auth'
-import { IS_PLATFORM } from 'lib/constants'
+import { AuthService, PERMISSIONS } from 'lib/auth-service'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { customAuthService } from 'lib/custom-auth-service'
 import { NextPageWithLayout, isNextPageWithLayout } from 'types'
 
 export function withAuth<T>(
@@ -20,10 +22,22 @@ export function withAuth<T>(
      * @default true
      */
     useHighestAAL: boolean
+    /**
+     * Required permissions for accessing this component (platform mode only)
+     */
+    permissions?: string[]
+    /**
+     * Required role for accessing this component (platform mode only)
+     */
+    role?: string
+    /**
+     * Custom redirect path for unauthorized access
+     */
+    unauthorizedRedirect?: string
   } = { useHighestAAL: true }
 ) {
-  // ignore auth in self-hosted
-  if (!IS_PLATFORM) {
+  // ignore auth in self-hosted mode (when both platform and custom auth are disabled)
+  if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
     return WrappedComponent
   }
 
@@ -48,10 +62,23 @@ export function withAuth<T>(
 
     const isLoggedIn = Boolean(session)
     const isFinishedLoading = !isLoading && !isAALLoading
+    const user = session?.user
+
+    // Check role and permission requirements
+    const hasRequiredRole = !options.role || (
+      IS_PLATFORM 
+        ? AuthService.hasRole(user || null, options.role)
+        : customAuthService?.getUserRole(user || null) === options.role
+    )
+    const hasRequiredPermissions = !options.permissions || (
+      IS_PLATFORM
+        ? options.permissions.every(permission => AuthService.hasPermission(user || null, permission))
+        : options.permissions.every(permission => customAuthService?.hasPermission(user || null, permission) ?? false)
+    )
 
     useEffect(() => {
       const isCorrectLevel = options.useHighestAAL
-        ? aalData?.currentLevel === aalData?.nextLevel
+        ? (IS_PLATFORM ? aalData?.currentLevel === aalData?.nextLevel : true)
         : true
 
       if (isFinishedLoading && (!isLoggedIn || !isCorrectLevel)) {
@@ -64,8 +91,26 @@ export function withAuth<T>(
         searchParams.set('returnTo', pathname)
 
         router.push(`/sign-in?${searchParams.toString()}`)
+        return
       }
-    }, [session, isLoading, router, aalData, isFinishedLoading, isLoggedIn])
+
+      // Check role and permission access after authentication
+      if (isFinishedLoading && isLoggedIn && isCorrectLevel) {
+        if (!hasRequiredRole) {
+          toast.error('You do not have the required role to access this page')
+          const redirectPath = options.unauthorizedRedirect || '/organizations'
+          router.push(redirectPath)
+          return
+        }
+
+        if (!hasRequiredPermissions) {
+          toast.error('You do not have the required permissions to access this page')
+          const redirectPath = options.unauthorizedRedirect || '/organizations'
+          router.push(redirectPath)
+          return
+        }
+      }
+    }, [session, isLoading, router, aalData, isFinishedLoading, isLoggedIn, hasRequiredRole, hasRequiredPermissions])
 
     const InnerComponent = WrappedComponent as any
 

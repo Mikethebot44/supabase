@@ -13,6 +13,10 @@ import { getMfaAuthenticatorAssuranceLevel } from 'data/profile/mfa-authenticato
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import { useLastSignIn } from 'hooks/misc/useLastSignIn'
 import { auth, buildPathWithParams, getReturnToPath } from 'lib/gotrue'
+import { AuthService } from 'lib/auth-service'
+import { syncAuthSession } from 'lib/auth'
+import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { customAuthService } from 'lib/custom-auth-service'
 import { Button, Form, Input } from 'ui'
 import { LastSignInWrapper } from './LastSignInWrapper'
 
@@ -41,11 +45,28 @@ const SignInForm = () => {
       token = captchaResponse?.response ?? null
     }
 
-    const { error } = await auth.signInWithPassword({
-      email,
-      password,
-      options: { captchaToken: token ?? undefined },
-    })
+    // Determine which auth method to use based on mode
+    let result
+    if (IS_PLATFORM) {
+      // Platform mode - use AuthService
+      result = await AuthService.signInWithEmail({
+        email,
+        password,
+        captchaToken: token ?? undefined,
+      })
+    } else if (CUSTOM_AUTH_ENABLED && customAuthService) {
+      // Custom auth mode - use custom auth service
+      result = await customAuthService.signInWithPassword(email, password)
+    } else {
+      // Self-hosted mode - use existing auth
+      result = await auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: token ?? undefined },
+      })
+    }
+    
+    const { error } = result
 
     if (!error) {
       setLastSignIn('email')
@@ -67,10 +88,31 @@ const SignInForm = () => {
         })
         addLoginEvent({})
 
+        // Force session sync in custom auth mode
+        if (CUSTOM_AUTH_ENABLED && !IS_PLATFORM) {
+          await syncAuthSession()
+          // Wait for auth state to propagate
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+        
+        // Reset queries after auth state is stable
         await queryClient.resetQueries()
+        
+        // Give additional time for components to re-render with new auth state
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
         const returnTo = getReturnToPath()
+        
+        // Determine appropriate redirect based on auth mode
+        let defaultRedirect = '/organizations' // Platform mode default
+        if (CUSTOM_AUTH_ENABLED && !IS_PLATFORM) {
+          defaultRedirect = '/project/default' // Custom auth mode - go to project
+        }
+        
+        const finalRedirect = returnTo === '/sign-in' || returnTo?.startsWith('/sign-in?') ? defaultRedirect : returnTo
+        
         // since we're already on the /sign-in page, prevent redirect loops
-        router.push(returnTo === '/sign-in' ? '/organizations' : returnTo)
+        window.location.href = finalRedirect
       } catch (error: any) {
         toast.error(`Failed to sign in: ${(error as AuthError).message}`, { id: toastId })
         Sentry.captureMessage('[CRITICAL] Failed to sign in via EP: ' + error.message)
