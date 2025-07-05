@@ -1,105 +1,123 @@
-import { LastSignInWrapper } from 'components/interfaces/SignIn/LastSignInWrapper'
-import SignInForm from 'components/interfaces/SignIn/SignInForm'
-import SignInWithGitHub from 'components/interfaces/SignIn/SignInWithGitHub'
-import { AuthenticationLayout } from 'components/layouts/AuthenticationLayout'
-import SignInLayout from 'components/layouts/SignInLayout/SignInLayout'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
-import { Lock } from 'lucide-react'
-import Link from 'next/link'
-import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import type { NextPageWithLayout } from 'types'
-import { Button } from 'ui'
+import { useState } from "react";
+import { signIn } from "lib/auth-client";
+import { Button, Input, Card, CardContent, CardHeader, CardTitle } from "ui";
+import { AuthenticationLayout } from 'components/layouts/AuthenticationLayout';
+import type { NextPageWithLayout } from 'types';
+import { useRouter } from 'next/router';
+import { toast } from 'sonner';
 
 const SignInPage: NextPageWithLayout = () => {
-  const router = useRouter()
-  const [isMounted, setIsMounted] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  // Handle client-side mounting to prevent hydration issues
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    // Only run redirect logic on client-side after mounting
-    if (!isMounted) return
-
-    // Redirect logic based on mode:
-    // - Self-hosted (no auth): redirect to default project
-    // - Platform/Custom auth: show sign-in form
-    if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
-      // on selfhosted instance just redirect to projects page
-      router.replace('/project/default')
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Add loading toast
+    const loadingToast = toast.loading("Signing you in...");
+    
+    try {
+      console.log("Attempting signin with:", { email });
+      
+      const result = await signIn.email({
+        email,
+        password,
+      });
+      
+      console.log("Signin result:", result);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (result.error) {
+        console.error("Signin error:", result.error);
+        if (result.error.message?.includes("email not verified")) {
+          toast.error("Please verify your email before signing in. Check your inbox!");
+        } else {
+          toast.error(result.error.message || "Sign in failed");
+        }
+      } else {
+        toast.success("Welcome back!");
+        router.push('/');
+      }
+    } catch (error: any) {
+      console.error("Signin exception:", error);
+      toast.dismiss(loadingToast);
+      toast.error(error.message || "Sign in failed");
+    } finally {
+      setLoading(false);
     }
-  }, [router, isMounted])
-
-  // Show loading during SSR and initial client render to prevent hydration mismatch
-  if (!isMounted) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
-        <p className="mt-2 text-foreground-light">Loading...</p>
-      </div>
-    )
-  }
+  };
 
   return (
-    <>
-      <div className="flex flex-col gap-5">
-        <SignInWithGitHub />
-        <LastSignInWrapper type="sso">
-          <Button asChild block size="large" type="outline" icon={<Lock width={18} height={18} />}>
-            <Link
-              href={{
-                pathname: '/sign-in-sso',
-                query: router.query,
-              }}
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Sign In</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium mb-1">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-1">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
             >
-              Continue with SSO
-            </Link>
-          </Button>
-        </LastSignInWrapper>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-strong" />
+              {loading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <button 
+                onClick={() => router.push('/sign-up')}
+                className="text-blue-600 hover:underline"
+              >
+                Sign up
+              </button>
+            </p>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 text-sm bg-studio text-foreground">or</span>
-          </div>
-        </div>
-
-        <SignInForm />
-      </div>
-
-      <div className="self-center my-8 text-sm">
-        <div>
-          <span className="text-foreground-light">Don't have an account?</span>{' '}
-          <Link
-            href={{
-              pathname: '/sign-up',
-              query: router.query,
-            }}
-            className="underline transition text-foreground hover:text-foreground-light"
-          >
-            Sign Up Now
-          </Link>
-        </div>
-      </div>
-    </>
-  )
-}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 SignInPage.getLayout = (page) => (
-  <AuthenticationLayout>
-    <SignInLayout
-      heading="Welcome back"
-      subheading="Sign in to your account"
-      logoLinkToMarketingSite={true}
-    >
-      {page}
-    </SignInLayout>
+  <AuthenticationLayout title="Sign In">
+    {page}
   </AuthenticationLayout>
-)
+);
 
-export default SignInPage
+export default SignInPage;

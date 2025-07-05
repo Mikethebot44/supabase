@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { toast } from 'sonner'
 
 import { Loading } from 'components/ui/Loading'
-import { useSignOut } from 'lib/auth'
+import { useSignOut } from "lib/auth-client"
 import { NextPageWithLayout } from 'types'
 
 const LogoutPage: NextPageWithLayout = () => {

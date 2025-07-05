@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 
 import { EnhancedMarkdown } from './EnhancedMarkdown'
 import { useAiAssistantStateSnapshot } from 'state/ai-assistant-state'
-import { useUser } from 'lib/auth'
+import { useUser } from "lib/auth-client"
 import { useIsUserLoading } from 'common'
 import {
   Button,

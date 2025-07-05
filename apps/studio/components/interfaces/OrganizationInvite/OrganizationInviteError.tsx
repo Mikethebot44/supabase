@@ -2,7 +2,7 @@ import { useRouter } from 'next/router'
 
 import AlertError from 'components/ui/AlertError'
 import { OrganizationInviteByToken } from 'data/organization-members/organization-invitation-token-query'
-import { useSignOut } from 'lib/auth'
+import { useSignOut } from "lib/auth-client"
 import { useProfile } from 'lib/profile'
 import { ResponseError } from 'types'
 import { cn } from 'ui'

@@ -16,7 +16,7 @@ import { getResourcesExceededLimitsOrg } from 'components/ui/OveragesBanner/Over
 import { useOrgUsageQuery } from 'data/usage/org-usage-query'
 import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProject } from 'hooks/misc/useSelectedProject'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { IS_PLATFORM } from 'lib/constants'
 import { useAppStateSnapshot } from 'state/app-state'
 import { AuthStatusBadge } from 'components/ui/AuthStatusBadge'
 import { AuthUserControls } from 'components/ui/AuthUserControls'
@@ -191,7 +191,7 @@ const LayoutHeader = ({
           {/* Auth Status Badge - always visible */}
           <AuthStatusBadge className="hidden lg:flex" />
           
-          {IS_PLATFORM || CUSTOM_AUTH_ENABLED ? (
+          {!IS_PLATFORM ? (
             <>
               {IS_PLATFORM && <FeedbackDropdown />}
 

@@ -6,7 +6,7 @@ import { useRouter } from 'next/router'
 
 import { LOCAL_STORAGE_KEYS } from 'common'
 import { useLocalStorageQuery } from 'hooks/misc/useLocalStorage'
-import { useSignOut } from 'lib/auth'
+import { useSignOut } from "lib/auth-client"
 import { Button } from 'ui'
 
 const Error500: NextPage = () => {

@@ -1,74 +1,136 @@
-import SignInWithGitHub from 'components/interfaces/SignIn/SignInWithGitHub'
-import SignUpForm from 'components/interfaces/SignIn/SignUpForm'
-import SignInLayout from 'components/layouts/SignInLayout/SignInLayout'
-import Link from 'next/link'
-import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
-import type { NextPageWithLayout } from 'types'
+import { useState } from "react";
+import { signUp } from "lib/auth-client";
+import { Button, Input, Card, CardContent, CardHeader, CardTitle } from "ui";
+import { AuthenticationLayout } from 'components/layouts/AuthenticationLayout';
+import type { NextPageWithLayout } from 'types';
+import { useRouter } from 'next/router';
+import { toast } from 'sonner';
 
 const SignUpPage: NextPageWithLayout = () => {
-  const router = useRouter()
-  const [isMounted, setIsMounted] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (!isMounted) return
-
-    // Redirect logic based on mode:
-    // - Self-hosted (no auth): redirect to default project
-    // - Platform/Custom auth: show sign-up form
-    if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
-      // on selfhosted instance just redirect to projects page
-      router.replace('/project/default')
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    // Add loading toast
+    const loadingToast = toast.loading("Creating your account...");
+    
+    try {
+      console.log("Attempting signup with:", { email, name, passwordLength: password.length });
+      
+      const result = await signUp.email({
+        email,
+        password,
+        name,
+      });
+      
+      console.log("Signup result:", result);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (result.error) {
+        console.error("Signup error:", result.error);
+        toast.error(result.error.message || "Sign up failed");
+      } else {
+        toast.success("Account created successfully!");
+        router.push('/sign-in');
+      }
+    } catch (error: any) {
+      console.error("Signup exception:", error);
+      toast.dismiss(loadingToast);
+      toast.error(error.message || "Sign up failed");
+    } finally {
+      setLoading(false);
     }
-  }, [router, isMounted])
+  };
 
-  // Show loading during SSR and initial client render to prevent hydration mismatch
-  if (!isMounted) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[200px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
-      </div>
-    )
-  }
   return (
-    <>
-      <div className="flex flex-col gap-5">
-        <SignInWithGitHub />
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-strong" />
+    <div className="flex items-center justify-center min-h-screen p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>Sign Up</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium mb-1">
+                Name
+              </label>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium mb-1">
+                Email
+              </label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+            
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-1">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+                minLength={6}
+              />
+            </div>
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
+            >
+              {loading ? "Creating account..." : "Sign Up"}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{" "}
+              <button 
+                onClick={() => router.push('/sign-in')}
+                className="text-blue-600 hover:underline"
+              >
+                Sign in
+              </button>
+            </p>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-studio px-2 text-sm text-foreground">or</span>
-          </div>
-        </div>
-
-        <SignUpForm />
-      </div>
-
-      <div className="my-8 self-center text-sm">
-        <span className="text-foreground-light">Have an account?</span>{' '}
-        <Link
-          href="/sign-in"
-          className="underline text-foreground hover:text-foreground-light transition"
-        >
-          Sign In Now
-        </Link>
-      </div>
-    </>
-  )
-}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 SignUpPage.getLayout = (page) => (
-  <SignInLayout heading="Get started" subheading="Create a new account">
+  <AuthenticationLayout title="Sign Up">
     {page}
-  </SignInLayout>
-)
+  </AuthenticationLayout>
+);
 
-export default SignUpPage
+export default SignUpPage;

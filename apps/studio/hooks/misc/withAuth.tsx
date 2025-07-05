@@ -2,86 +2,50 @@ import { useRouter } from 'next/router'
 import { ComponentType, useEffect } from 'react'
 import { toast } from 'sonner'
 
-import { usePermissionsQuery } from 'data/permissions/permissions-query'
-import { useAuthenticatorAssuranceLevelQuery } from 'data/profile/mfa-authenticator-assurance-level-query'
-import { useAuth } from 'lib/auth'
-import { AuthService, PERMISSIONS } from 'lib/auth-service'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
-import { customAuthService } from 'lib/custom-auth-service'
+import { useAuth, hasRole, type User } from "lib/auth-client"
+import { IS_PLATFORM } from 'lib/constants'
 import { NextPageWithLayout, isNextPageWithLayout } from 'types'
 
 export function withAuth<T>(
   WrappedComponent: ComponentType<T> | NextPageWithLayout<T, T>,
   options: {
     /**
-     * The auth level used to check the user credentials. In most cases, if the user has MFA enabled
-     * we want the highest level (which is 2) for all pages. For certain pages, the user should be
-     * able to access them even if he didn't finished his login (typed in his MFA code), for example
-     * the support page: We want the user to be able to submit a ticket even if he's not fully
-     * signed in.
-     * @default true
-     */
-    useHighestAAL: boolean
-    /**
-     * Required permissions for accessing this component (platform mode only)
+     * Required permissions for accessing this component
      */
     permissions?: string[]
     /**
-     * Required role for accessing this component (platform mode only)
+     * Required role for accessing this component
      */
     role?: string
     /**
      * Custom redirect path for unauthorized access
      */
     unauthorizedRedirect?: string
-  } = { useHighestAAL: true }
+  } = {}
 ) {
-  // ignore auth in self-hosted mode (when both platform and custom auth are disabled)
-  if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
-    return WrappedComponent
-  }
-
   const WithAuthHOC: ComponentType<T> = (props) => {
     const router = useRouter()
-    const { isLoading, session } = useAuth()
-    const { isLoading: isAALLoading, data: aalData } = useAuthenticatorAssuranceLevelQuery({
-      onError(error) {
-        toast.error(
-          `Failed to fetch authenticator assurance level: ${error.message}. Try refreshing your browser, or reach out to us via a support ticket if the issue persists`
-        )
-      },
+    const { isLoading, user, session } = useAuth()
+
+    const isLoggedIn = Boolean(user && session)
+    const isFinishedLoading = !isLoading
+
+    // Check role requirements
+    const hasRequiredRole = !options.role || hasRole(user, options.role)
+
+    // For now, we'll implement basic permission checking
+    // In a real implementation, you'd want to define what permissions mean for your app
+    const hasRequiredPermissions = !options.permissions || options.permissions.every(permission => {
+      // Basic permission check - you can expand this based on your needs
+      if (permission === 'read') return true
+      if (permission === 'write') return hasRole(user, 'admin') || hasRole(user, 'owner')
+      if (permission === 'admin') return hasRole(user, 'admin') || hasRole(user, 'owner')
+      if (permission === 'owner') return hasRole(user, 'owner')
+      return false
     })
-
-    usePermissionsQuery({
-      onError(error: any) {
-        toast.error(
-          `Failed to fetch permissions: ${error.message}. Try refreshing your browser, or reach out to us via a support ticket if the issue persists`
-        )
-      },
-    })
-
-    const isLoggedIn = Boolean(session)
-    const isFinishedLoading = !isLoading && !isAALLoading
-    const user = session?.user
-
-    // Check role and permission requirements
-    const hasRequiredRole = !options.role || (
-      IS_PLATFORM 
-        ? AuthService.hasRole(user || null, options.role)
-        : customAuthService?.getUserRole(user || null) === options.role
-    )
-    const hasRequiredPermissions = !options.permissions || (
-      IS_PLATFORM
-        ? options.permissions.every(permission => AuthService.hasPermission(user || null, permission))
-        : options.permissions.every(permission => customAuthService?.hasPermission(user || null, permission) ?? false)
-    )
 
     useEffect(() => {
-      const isCorrectLevel = options.useHighestAAL
-        ? (IS_PLATFORM ? aalData?.currentLevel === aalData?.nextLevel : true)
-        : true
-
-      if (isFinishedLoading && (!isLoggedIn || !isCorrectLevel)) {
+      if (isFinishedLoading && !isLoggedIn) {
         const searchParams = new URLSearchParams(location.search)
         let pathname = location.pathname
         if (process.env.NEXT_PUBLIC_BASE_PATH) {
@@ -89,31 +53,49 @@ export function withAuth<T>(
         }
 
         searchParams.set('returnTo', pathname)
-
         router.push(`/sign-in?${searchParams.toString()}`)
         return
       }
 
       // Check role and permission access after authentication
-      if (isFinishedLoading && isLoggedIn && isCorrectLevel) {
+      if (isFinishedLoading && isLoggedIn) {
         if (!hasRequiredRole) {
           toast.error('You do not have the required role to access this page')
-          const redirectPath = options.unauthorizedRedirect || '/organizations'
+          const redirectPath = options.unauthorizedRedirect || '/project/default'
           router.push(redirectPath)
           return
         }
 
         if (!hasRequiredPermissions) {
           toast.error('You do not have the required permissions to access this page')
-          const redirectPath = options.unauthorizedRedirect || '/organizations'
+          const redirectPath = options.unauthorizedRedirect || '/project/default'
           router.push(redirectPath)
           return
         }
       }
-    }, [session, isLoading, router, aalData, isFinishedLoading, isLoggedIn, hasRequiredRole, hasRequiredPermissions])
+    }, [session, isLoading, router, isFinishedLoading, isLoggedIn, hasRequiredRole, hasRequiredPermissions])
+
+    // Show loading state while checking authentication
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[200px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground"></div>
+          <p className="mt-2 text-foreground-light">Loading...</p>
+        </div>
+      )
+    }
+
+    // If not authenticated, don't render the component (will redirect)
+    if (!isLoggedIn) {
+      return null
+    }
+
+    // If missing required role/permissions, don't render the component (will redirect)
+    if (!hasRequiredRole || !hasRequiredPermissions) {
+      return null
+    }
 
     const InnerComponent = WrappedComponent as any
-
     return <InnerComponent {...props} />
   }
 

@@ -1,8 +1,8 @@
 import { LogOut, Settings, User } from 'lucide-react'
 import { useRouter } from 'next/router'
 import { ProfileImage } from 'components/ui/ProfileImage'
-import { useAuth, useSignOut } from 'lib/auth'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { useAuth, useSignOut } from 'lib/auth-client'
+import { IS_PLATFORM } from 'lib/constants'
 import { 
   Button, 
   DropdownMenu, 
@@ -32,7 +32,7 @@ export function AuthUserControls() {
   const handleAccountSettings = () => {
     if (IS_PLATFORM) {
       router.push('/account/me')
-    } else if (CUSTOM_AUTH_ENABLED) {
+    } else if (!IS_PLATFORM) {
       router.push('/account/profile')
     }
   }
@@ -100,7 +100,7 @@ export function AuthUserControls() {
           
           <DropdownMenuSeparator />
           
-          {(IS_PLATFORM || CUSTOM_AUTH_ENABLED) && (
+          {!IS_PLATFORM && (
             <DropdownMenuItem onClick={handleAccountSettings}>
               <Settings size={16} className="mr-2" />
               Account Settings

@@ -3,7 +3,7 @@ import { useRouter } from 'next/router'
 import { toast } from 'sonner'
 import { useTheme } from 'next-themes'
 
-import { useAuth } from 'lib/auth'
+import { useAuth } from "lib/auth-client"
 import { customAuthService } from 'lib/custom-auth-service'
 import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
 import DefaultLayout from 'components/layouts/DefaultLayout'

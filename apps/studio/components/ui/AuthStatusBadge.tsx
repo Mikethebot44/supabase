@@ -1,6 +1,6 @@
 import { User } from 'lucide-react'
-import { useAuth } from 'lib/auth'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { useAuth } from "lib/auth-client"
+import { IS_PLATFORM } from 'lib/constants'
 import { Badge, cn } from 'ui'
 
 interface AuthStatusBadgeProps {
@@ -24,7 +24,7 @@ export function AuthStatusBadge({ className, showDetails = true }: AuthStatusBad
   let authMode = 'Self-hosted'
   if (IS_PLATFORM) {
     authMode = 'Platform'
-  } else if (CUSTOM_AUTH_ENABLED) {
+  } else if (!IS_PLATFORM) {
     authMode = 'Custom Auth'
   }
 

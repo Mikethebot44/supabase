@@ -43,7 +43,7 @@ import { GenerateSql } from 'components/interfaces/SqlGenerator/SqlGenerator'
 import { GlobalErrorBoundaryState } from 'components/ui/GlobalErrorBoundaryState'
 import { useRootQueryClient } from 'data/query-client'
 import { customFont, sourceCodePro } from 'fonts'
-import { AuthProvider } from 'lib/auth'
+import { AuthProvider } from "lib/auth-client"
 import { getFlags as getConfigCatFlags } from 'lib/configcat'
 import { API_URL, BASE_PATH, IS_PLATFORM } from 'lib/constants'
 import { ProfileProvider } from 'lib/profile'

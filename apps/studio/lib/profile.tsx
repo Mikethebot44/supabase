@@ -10,7 +10,7 @@ import { useProfileQuery } from 'data/profile/profile-query'
 import type { Profile } from 'data/profile/types'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import type { ResponseError } from 'types'
-import { useSignOut } from './auth'
+import { useSignOut } from './auth-client'
 import { getGitHubProfileImgUrl } from './github'
 
 export type ProfileContextType = {

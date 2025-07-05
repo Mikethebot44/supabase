@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 
 import { ProfileImage } from 'components/ui/ProfileImage'
-import { useSignOut } from 'lib/auth'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
+import { useSignOut } from 'lib/auth-client'
+import { IS_PLATFORM } from 'lib/constants'
 import { useProfile } from 'lib/profile'
 import { useAppStateSnapshot } from 'state/app-state'
 import {
@@ -116,7 +116,7 @@ export function UserDropdown() {
             ))}
           </DropdownMenuRadioGroup>
         </DropdownMenuGroup>
-        {(IS_PLATFORM || CUSTOM_AUTH_ENABLED) && (
+        {!IS_PLATFORM && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>

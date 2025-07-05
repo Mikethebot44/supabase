@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAccessToken } from 'common'
-import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from './constants'
+import { IS_PLATFORM } from './constants'
 
 /**
  * Authentication middleware for platform mode
@@ -129,13 +129,9 @@ function hasRole(userRole: string | undefined, allowedRoles: string[]): boolean 
 export async function authMiddleware(request: NextRequest): Promise<NextResponse> {
   const { pathname } = request.nextUrl
 
-  // Skip auth middleware in self-hosted mode (when both platform and custom auth are disabled)
-  if (!IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
-    return NextResponse.next()
-  }
-  
-  // Skip auth middleware in development mode only for self-hosted mode
-  if (process.env.NODE_ENV === 'development' && !IS_PLATFORM && !CUSTOM_AUTH_ENABLED) {
+  // For now, we'll use client-side authentication with Better Auth
+  // In production, you may want to add server-side token validation
+  if (!IS_PLATFORM) {
     return NextResponse.next()
   }
 
@@ -165,12 +161,6 @@ export async function authMiddleware(request: NextRequest): Promise<NextResponse
   const token = tokenFromHeader || tokenFromCookie || customAuthCookie
 
   if (!token) {
-    // In custom auth mode, be more lenient as localStorage tokens aren't accessible in middleware
-    if (CUSTOM_AUTH_ENABLED && !IS_PLATFORM) {
-      // Allow access and let client-side auth handle verification
-      return NextResponse.next()
-    }
-    
     // No token found, redirect to sign-in
     const url = request.nextUrl.clone()
     url.pathname = '/sign-in'

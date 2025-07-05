@@ -2,7 +2,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import { useAuth } from 'lib/auth'
+import { useAuth } from "lib/auth-client"
 import { AuthService } from 'lib/auth-service'
 import { IS_PLATFORM, CUSTOM_AUTH_ENABLED } from 'lib/constants'
 import { NextPageWithLayout } from 'types'
